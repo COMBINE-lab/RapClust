@@ -60,15 +60,8 @@
 #include "RapMapSAIndex.hpp"
 #include "SailfishUtils.hpp"
 #include "SailfishIndex.hpp"
-#include "GenomicFeature.hpp"
 #include "spdlog/spdlog.h"
 #include "spdlog/details/format.h"
-
-int computeBiasFeatures(
-    std::vector<std::string>& transcriptFiles,
-    boost::filesystem::path outFilePath,
-    bool useStreamingParser,
-    size_t numThreads);
 
 int mainIndex( int argc, char *argv[] ) {
     using std::string;
@@ -116,6 +109,22 @@ Builds a Sailfish index
         // Check to make sure that the specified output directory either doesn't exist, or is
         // a valid path (e.g. not a file)
         namespace bfs = boost::filesystem;
+
+        // Ensure that the transcript file provided by the user exists
+        auto txpFile = transcriptFiles.front();
+        if (!bfs::exists(txpFile)) {
+            std::cerr << "The provided transcript file [" << txpFile << "] does not seem to exist!\n";
+            std::cerr << "Please check that the correct path was provided.\n";
+            std::exit(1);
+        }
+        // and that it is, in fact, a file
+        if (bfs::is_directory(txpFile)) {
+            std::cerr << "The provided transcript file [" << txpFile << "] appears to be a directory!\n";
+            std::cerr << "Please check that the correct path was provided.\n";
+            std::exit(1);
+        }
+
+        // Check that the output path doesn't exist yet (or at least is not a file)
         if (bfs::exists(outputStem) and !bfs::is_directory(outputStem)) {
             std::cerr << "The provided output path [" << outputStem << "] " <<
                          "already exists and is not a directory\n.";
@@ -128,12 +137,12 @@ Builds a Sailfish index
         if (!bfs::exists(outputStem)) {
             mustRecompute = true;
             try {
-                bool success = bfs::create_directory(outputStem);
+                bool success = bfs::create_directories(outputStem);
                 if (!success) { throw std::runtime_error("unspecified error creating file."); }
             } catch ( std::exception& e ) {
                 std::cerr << "Creation of " << outputStem << " failed [" << e.what() << "]\n.";
                 std::cerr << "Exiting.\n";
-                std::exit(1);
+                return 1;
             }
         }
 
@@ -141,7 +150,7 @@ Builds a Sailfish index
 
         // create the directory for log files
         bfs::path logDir = outputPath / "logs";
-        boost::filesystem::create_directory(logDir);
+        boost::filesystem::create_directories(logDir);
 
         bfs::path logPath = logDir / "sailfish_index.log";
         size_t max_q_size = 2097152;
@@ -149,12 +158,13 @@ Builds a Sailfish index
 
         auto fileSink = std::make_shared<spdlog::sinks::simple_file_sink_mt>(logPath.string(), true);
         auto consoleSink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
-        auto consoleLog = spdlog::create("consoleLog", {consoleSink});
-        auto fileLog = spdlog::create("fileLog", {fileSink});
+        //auto consoleLog = spdlog::create("consoleLog", {consoleSink});
+        //auto fileLog = spdlog::create("fileLog", {fileSink});
         auto jointLog = spdlog::create("jointLog", {fileSink, consoleSink});
 
         std::cerr << "writing log to " << logPath.string() << "\n";
 
+        /** No more of this bias correction method!
         // First, compute the transcript features in case the user
         // ever wants to bias-correct his / her results
         bfs::path transcriptBiasFile(outputPath); transcriptBiasFile /= "bias_feats.txt";
@@ -163,9 +173,10 @@ Builds a Sailfish index
         for (auto& tf : transcriptFiles) {
             jointLog->info() << "[" << tf << "] ";
         }
-	std::string txpBiasFileName = transcriptBiasFile.string();
+   	    std::string txpBiasFileName = transcriptBiasFile.string();
         jointLog->info(", {}, {}, {}\n", txpBiasFileName, useStreamingParser, numThreads);
         computeBiasFeatures(transcriptFiles, transcriptBiasFile, useStreamingParser, numThreads);
+        */
 
         bfs::path headerPath = outputPath / "header.json";
         mustRecompute = (force or !boost::filesystem::exists(headerPath));
@@ -184,10 +195,11 @@ Builds a Sailfish index
             argVec.push_back("-k");
 
             if (merLen % 2 == 0) {
-		std::cerr << "k-mer length should be odd to avoid a k-mer being it's own reverse complement\n";
-		std::cerr << "please specify an odd value of k\n";
-		jointLog->flush();
-                std::exit(1);
+                jointLog->error("k-mer length should be odd to avoid a k-mer being it's own reverse complement\n"
+                                "please specify an odd value of k\n");
+                jointLog->flush();
+                spdlog::drop("jointLog");
+                return 1;
             }
 
             fmt::MemoryWriter optWriter;
@@ -199,32 +211,6 @@ Builds a Sailfish index
             argVec.push_back(outputPath.string().c_str());
             SailfishIndex sidx(jointLog);
             sidx.build(outputPath, argVec, merLen);
-            /*
-            TranscriptGeneMap tgmap;
-            if (vm.count("tgmap") ) { // if we have a GTF file
-                string transcriptGeneMap = vm["tgmap"].as<string>();
-                std::cerr << "building transcript to gene map using gtf file [" <<
-                             transcriptGeneMap << "] . . .\n";
-                auto features = GTFParser::readGTFFile<TranscriptGeneID>(transcriptGeneMap);
-                tgmap = sailfish::utils::transcriptToGeneMapFromFeatures( features );
-                std::cerr << "done\n";
-            } else {
-                std::cerr << "building transcript to gene map using transcript fasta file [" <<
-                             transcriptFiles[0] << "] . . .\n";
-                tgmap = sailfish::utils::transcriptToGeneMapFromFasta(transcriptFiles[0]);
-                std::cerr << "there are " << tgmap.numTranscripts() << " transcripts . . . ";
-                std::cerr << "done\n";
-            }
-
-            { // save transcript <-> gene map to archive
-                bfs::path tgmOutPath(outputPath); tgmOutPath /= "transcriptome.tgm";
-                std::cerr << "Saving transcritpt to gene map to [" << tgmOutPath << "]\n";
-                std::ofstream ofs(tgmOutPath.string(), std::ios::binary);
-                cereal::BinaryOutputArchive oa(ofs);
-                // write class instance to archive
-                oa << tgmap;
-            } // archive and stream closed when destructors are called
-            */
         } else {
             std::cerr << "All index files seem up-to-date.\n";
             std::cerr << "To force Sailfish to rebuild the index, use the --force option.\n";

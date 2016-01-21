@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <iostream>
 #include <tuple>
+#include <fstream>
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
@@ -39,9 +40,13 @@
 #include "jellyfish/mer_dna.hpp"
 
 #include "TranscriptGeneMap.hpp"
-#include "GenomicFeature.hpp"
 #include "SailfishUtils.hpp"
 #include "ReadExperiment.hpp"
+
+//S_AYUSH_CODE
+#include "ReadKmerDist.hpp"
+#include "UtilityFunctions.hpp"
+//T_AYUSH_CODE
 
 namespace sailfish {
     namespace utils {
@@ -65,9 +70,9 @@ namespace sailfish {
             std::unique_ptr<std::FILE, int (*)(std::FILE *)> output(std::fopen(fname.c_str(), "w"), std::fclose);
 
             fmt::print(output.get(), "{}", headerComments);
-            fmt::print(output.get(), "# Name\tLength\tTPM\tNumReads\n");
+            fmt::print(output.get(), "Name\tLength\tEffectiveLength\tTPM\tNumReads\n");
 
-            double numMappedFrags = readExp.upperBoundHits();
+            double numMappedFrags = readExp.numMappedFragments();
 
             std::vector<Transcript>& transcripts_ = readExp.transcripts();
             for (auto& transcript : transcripts_) {
@@ -86,18 +91,15 @@ namespace sailfish {
             double million = 1000000.0;
             // Now posterior has the transcript fraction
             for (auto& transcript : transcripts_) {
-                double refLength = sopt.noEffectiveLengthCorrection ?
+                auto effLen = sopt.noEffectiveLengthCorrection ?
                     transcript.RefLength :
                     transcript.EffectiveLength;
                 double count = transcript.projectedCounts;
                 double npm = (transcript.projectedCounts / numMappedFrags);
-                double tfrac = (npm / refLength) / tfracDenom;
+                double tfrac = (npm / effLen) / tfracDenom;
                 double tpm = tfrac * million;
-                auto effLen = sopt.noEffectiveLengthCorrection ?
-                    transcript.RefLength :
-                    transcript.EffectiveLength;
-                fmt::print(output.get(), "{}\t{}\t{}\t{}\n",
-                        transcript.RefName, transcript.RefLength, //effLen,
+                fmt::print(output.get(), "{}\t{}\t{}\t{}\t{}\n",
+                        transcript.RefName, transcript.RefLength, effLen,
                         tpm, count);
             }
 
@@ -197,6 +199,142 @@ namespace sailfish {
             size_t numLibs = libs.size();
             std::cerr << "there " << ((numLibs > 1) ? "are " : "is ") << libs.size() << ((numLibs > 1) ? " libs\n" : " lib\n");
             return libs;
+        }
+
+
+        // for single end reads or orphans
+        bool compatibleHit(LibraryFormat expected,
+                           int32_t start, bool isForward, MateStatus ms) {
+            auto expectedStrand = expected.strandedness;
+            switch (ms) {
+                case MateStatus::SINGLE_END:
+                    if (isForward) { // U, SF
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::S);
+                    } else { // U, SR
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::A);
+                    }
+                    break;
+                case MateStatus::PAIRED_END_LEFT:
+                    // "M"atching or same orientation is a special case
+                    if (expected.orientation == ReadOrientation::SAME) {
+                        return (expectedStrand == ReadStrandedness::U
+                                or
+                                (expectedStrand == ReadStrandedness::S and isForward)
+                                or
+                                (expectedStrand == ReadStrandedness::A and !isForward));
+                    } else if (isForward) { // IU, ISF, OU, OSF, MU, MSF
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::S);
+                    } else { // IU, ISR, OU, OSR, MU, MSR
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::A);
+                    }
+                    break;
+                case MateStatus::PAIRED_END_RIGHT:
+                    // "M"atching or same orientation is a special case
+                    if (expected.orientation == ReadOrientation::SAME) {
+                        return (expectedStrand == ReadStrandedness::U
+                                or
+                                (expectedStrand == ReadStrandedness::S and isForward)
+                                or
+                                (expectedStrand == ReadStrandedness::A and !isForward));
+                    } else if (isForward) { // IU, ISR, OU, OSR, MU, MSR
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::A);
+                    } else { // IU, ISF, OU, OSF, MU, MSF
+                        return (expectedStrand == ReadStrandedness::U or
+                                expectedStrand == ReadStrandedness::S);
+                    }
+                    break;
+                default:
+                    // SHOULD NOT GET HERE
+                    fmt::print(stderr, "WARNING: Could not associate known library type with read!\n");
+                    return false;
+                    break;
+            }
+            // SHOULD NOT GET HERE
+            fmt::print(stderr, "WARNING: Could not associate known library type with read!\n");
+            return false;
+        }
+
+
+        // for paired-end reads
+        bool compatibleHit(LibraryFormat expected, LibraryFormat observed) {
+            if (observed.type != ReadType::PAIRED_END) {
+                // SHOULD NOT GET HERE
+                fmt::print(stderr, "WARNING: PE compatibility function called with SE read!\n");
+                return false;
+            }
+
+            auto es = expected.strandedness;
+            auto eo = expected.orientation;
+
+            auto os = observed.strandedness;
+            auto oo = observed.orientation;
+
+            // If the orientations are different, they are incompatible
+            if (eo != oo) {
+                return false;
+            } else { // In this branch, the orientations are always compatible
+                return (es == ReadStrandedness::U or
+                        es == os);
+            }
+            // SHOULD NOT GET HERE
+            fmt::print(stderr, "WARNING: Could not determine strand compatibility!");
+            fmt::print(stderr, "please report this.\n");
+            return false;
+        }
+
+
+        // Determine the library type of paired-end reads
+        LibraryFormat hitType(int32_t end1Start, bool end1Fwd, uint32_t len1,
+                              int32_t end2Start, bool end2Fwd, uint32_t len2, bool canDovetail) {
+
+            // If the reads come from opposite strands
+            if (end1Fwd != end2Fwd) {
+                // and if read 1 comes from the forward strand
+                if (end1Fwd) {
+                    // then if read 1 start < read 2 start ==> ISF
+                    // NOTE: We can't really delineate between inward facing reads that stretch
+                    // past each other and outward facing reads --- the purpose of stretch is to help
+                    // make this determinateion.
+                    int32_t stretch = canDovetail ? len2 : 0;
+                    if (end1Start <= end2Start + stretch) {
+                        return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::TOWARD, ReadStrandedness::SA);
+                    } // otherwise read 2 start < read 1 start ==> OSF
+                    else {
+                        return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::AWAY, ReadStrandedness::SA);
+                    }
+                }
+                // and if read 2 comes from the forward strand
+                if (end2Fwd) {
+                    // then if read 2 start <= read 1 start ==> ISR
+                    // NOTE: We can't really delineate between inward facing reads that stretch
+                    // past each other and outward facing reads --- the purpose of stretch is to help
+                    // make this determinateion.
+                    int32_t stretch = canDovetail ? len1 : 0;
+                    if (end2Start <= end1Start + stretch) {
+                        return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::TOWARD, ReadStrandedness::AS);
+                    } // otherwise, read 2 start > read 1 start ==> OSR
+                    else {
+                        return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::AWAY, ReadStrandedness::AS);
+                    }
+                }
+            } else { // Otherwise, the reads come from the same strand
+                if (end1Fwd) { // if it's the forward strand ==> MSF
+                    return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::SAME, ReadStrandedness::S);
+                } else { // if it's the reverse strand ==> MSR
+                    return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::SAME, ReadStrandedness::A);
+                }
+            }
+            // SHOULD NOT GET HERE
+            spdlog::get("jointLog")->error("ERROR: Could not associate any known library type with read! "
+                                           "Please report this bug!\n");
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::exit(-1);
+            return LibraryFormat(ReadType::PAIRED_END, ReadOrientation::NONE, ReadStrandedness::U);
         }
 
         uint64_t encode(uint64_t tid, uint64_t offset) {
@@ -463,13 +601,14 @@ namespace sailfish {
 
         class ExpressionRecord {
             public:
-                ExpressionRecord(const std::string& targetIn, uint32_t lengthIn,
+                ExpressionRecord(const std::string& targetIn, uint32_t lengthIn, double effLengthIn,
                         std::vector<double>& expValsIn) :
-                    target(targetIn), length(lengthIn), expVals(expValsIn) {}
+                    target(targetIn), length(lengthIn), effLength(effLengthIn), expVals(expValsIn) {}
 
                 ExpressionRecord( ExpressionRecord&& other ) {
                     std::swap(target, other.target);
                     length = other.length;
+		    effLength = other.effLength;
                     std::swap(expVals, other.expVals);
                 }
 
@@ -481,6 +620,7 @@ namespace sailfish {
                         auto it = inputLine.begin();
                         target = *it; ++it;
                         length = std::stoi(*it); ++it;
+			effLength = std::stod(*it); ++it;
                         for (; it != inputLine.end(); ++it) {
                             expVals.push_back(std::stod(*it));
                         }
@@ -489,6 +629,7 @@ namespace sailfish {
 
                 std::string target;
                 uint32_t length;
+		double effLength;
                 std::vector<double> expVals;
         };
 
@@ -508,6 +649,295 @@ namespace sailfish {
             return result;
         }
 
+        /**
+         * Computes (and returns) new effective lengths for the transcripts
+         * based on the current abundance estimates (alphas) and the current
+         * effective lengths (effLensIn).  This approach is based on the one
+	 * taken in Kallisto (for sequence-specific bias), and seems to work
+	 * well given its low computational requirements.  The handling of
+	 * fragment GC bias below is similar, but is not done in Kallisto.
+         */
+        template <typename AbundanceVecT>
+        Eigen::VectorXd updateEffectiveLengths(
+				    SailfishOpts& sfopts,
+			  	    ReadExperiment& readExp,
+                                    Eigen::VectorXd& effLensIn,
+                                    AbundanceVecT& alphas) {
+            using std::vector;
+            double minAlpha = 1e-8;
+
+            // TODO: This assumes, for the time being, that all read
+            // libraries have the same type.
+            //auto libFormat = readExp.readLibraries().front().format();
+            //bool unstrandedFormat = (libFormat.strandedness ==  ReadStrandedness::U);
+            //double strandFrac = unstrandedFormat ? 0.5 : 1.0;
+
+            int64_t numFwdMappings = readExp.numFwd();
+            int64_t numRCMappings = readExp.numRC();
+            int64_t numMappings = numFwdMappings + numRCMappings;
+
+            if (numMappings == 0) {
+              sfopts.jointLog->warn("Had no fragments from which to estimate "
+                                    "fwd vs. rev-comp mapping rate.  Skipping "
+                                    "bias / gc-bias correction");
+              return effLensIn;
+            }
+
+            double probFwd = static_cast<double>(numFwdMappings) / numMappings;
+            double probRC = static_cast<double>(numRCMappings) / numMappings;
+
+            bool checkFwd = probFwd > 0.01;
+            bool checkRC = probRC > 0.01;
+
+            // calculate read bias normalization factor -- total count in read
+            // distribution.
+            auto& readBias = readExp.readBias();
+            int32_t K = readBias.getK();
+            double readNormFactor = static_cast<double>(readBias.totalCount());
+
+            // The *expected* biases from sequence-specific effects
+            auto& transcriptKmerDist = readExp.expectedSeqBias();
+
+            // Reset the transcript (normalized) counts
+            transcriptKmerDist.clear();
+            transcriptKmerDist.resize(constExprPow(4, K), 1.0);
+
+            EmpiricalDistribution& fld = *(readExp.fragLengthDist());
+
+            // The *expected* biases from GC effects
+            auto& transcriptGCDist = readExp.expectedGCBias();
+            auto& gcCounts = readExp.observedGC();
+            double readGCNormFactor = 0.0;
+            int32_t fldLow{0};
+            int32_t fldHigh{1};
+
+            // if GC bias
+            bool gcBiasCorrect{sfopts.gcBiasCorrect};
+            bool seqBiasCorrect{sfopts.biasCorrect};
+
+            if (gcBiasCorrect) {
+              transcriptGCDist.clear();
+              transcriptGCDist.resize(101, 1.0);
+
+              bool first{false};
+              bool second{false};
+              for (size_t i = 0; i <= fld.maxValue(); ++i) {
+                auto density = fld.cdf(i);
+                if (!first and density >= 0.01) {
+                  first = true;
+                  fldLow = i;
+                }
+                if (!second and density >= 0.99) {
+                  second = true;
+                  fldHigh = i;
+                }
+              }
+
+              for (auto& c : gcCounts) { readGCNormFactor += c; }
+            }
+
+            // Make this const so there are no shenanigans
+            const auto& transcripts = readExp.transcripts();
+
+            // The effective lengths adjusted for bias
+            Eigen::VectorXd effLensOut(effLensIn.size());
+
+            // How much to cut off
+            int32_t trunc = std::max(K, fldLow);
+
+            for(size_t it=0; it < transcripts.size(); ++it) {
+              auto& txp = transcripts[it];
+
+              // First in the forward direction
+              int32_t refLen = static_cast<int32_t>(txp.RefLength);
+              int32_t elen = static_cast<int32_t>(txp.EffectiveLength);
+
+              // How much of this transcript (beginning and end) should
+              // not be considered
+              int32_t unprocessedLen = std::max(0, refLen - elen);
+
+              // Skip transcripts with trivial expression or that are too
+              // short.
+              if (alphas[it] < minAlpha or unprocessedLen <= 0) {
+                continue;
+              }
+
+              // Otherwise, proceed with the following weight.
+              double contribution = (alphas[it]/effLensIn(it));
+
+              // This transcript's sequence
+              const char* tseq = txp.Sequence();
+
+              // From the start of the transcript up until the last valid
+              // kmer.
+              bool firstKmer{true};
+              uint32_t idx{0};
+
+              // From the start of the transcript through the effective length
+              for (int32_t i = refLen - trunc - 1; i >= 0; --i) {
+                // Seq bias
+                if (seqBiasCorrect) {
+                  if (firstKmer) {
+                    idx = indexForKmer(tseq + i, K, Direction::REVERSE_COMPLEMENT);
+                    firstKmer = false;
+                  } else {
+                    idx = nextKmerIndex(idx, tseq[i], K, Direction::REVERSE_COMPLEMENT);
+                  }
+                  transcriptKmerDist[idx] += probFwd * contribution * fld.cdf(refLen - i);
+                }
+
+                if (gcBiasCorrect) {
+                  for (int32_t fl = fldLow; fl <= fldHigh; ++fl) {
+                    if (i + fl < refLen) {
+                      auto startGC = txp.gcCount(i);
+                      auto stopGC = txp.gcCount(i + fl);
+                      auto gcFrac = std::lrint(100.0 * static_cast<double>(stopGC - startGC) / fl);
+                      transcriptGCDist[gcFrac] += contribution * fld.pdf(fl);
+                    }
+                  } // for each fragment  length
+                } // end checkFwd
+              } // for every position a fragment could start
+
+              // Then in the reverse complement direction
+              firstKmer = true;
+              idx = 0;
+
+              // Start from the end and go until the fragment length
+              // distribution says we should stop
+              for (int32_t i = 0; i <= refLen - trunc - 1; ++i) {
+                if (seqBiasCorrect) {
+                  if (firstKmer) {
+                    idx = indexForKmer(tseq, K, Direction::FORWARD);
+                    firstKmer = false;
+                  } else {
+                    idx = nextKmerIndex(idx, tseq[i-1+K], K, Direction::FORWARD);
+                  }
+                  transcriptKmerDist[idx] += probRC * contribution * fld.cdf(i);
+                }
+              } // end for pos in transcript
+
+            } // end for each transcript
+
+            // The total mass of the transcript distribution
+            double txomeNormFactor = 0.0;
+            for(auto m : transcriptKmerDist) { txomeNormFactor += m; }
+
+            double txomeGCNormFactor = 0.0;
+            double gcPrior = 0.0;
+            if (gcBiasCorrect) {
+              for (auto m : transcriptGCDist) { txomeGCNormFactor += m; }
+              gcPrior = ((101.0 / (readGCNormFactor - 101.0)) * txomeGCNormFactor) / 101.0;
+            }
+
+            // Now, compute the effective length of each transcript using
+            // the k-mer biases
+            for(size_t it = 0; it < transcripts.size(); ++it) {
+              // Starts out as 0
+              double effLength = 0.0;
+
+              auto& txp = transcripts[it];
+              // First in the forward direction, from the start of the
+              // transcript up until the last valid kmer.
+              int32_t refLen = static_cast<int32_t>(txp.RefLength);
+              int32_t elen = static_cast<int32_t>(txp.EffectiveLength);
+
+              // How much of this transcript (beginning and end) should
+              // not be considered
+              int32_t unprocessedLen = std::max(0, refLen - elen);
+
+              std::vector<double> seqFactors(refLen, 0.0);
+              std::vector<double> gcFactors(refLen, 0.0);
+
+              if (alphas[it] >= minAlpha and unprocessedLen > 0) {
+                bool firstKmer{true};
+                uint32_t idx{0};
+                // This transcript's sequence
+                const char* tseq = txp.Sequence();
+
+                for (int32_t i = refLen - trunc - 1; i >= 0; --i) {
+                  /** Seq-specific bias **/
+                  if (seqBiasCorrect) {
+                    if (firstKmer) {
+                      idx = indexForKmer(tseq + i, K, Direction::REVERSE_COMPLEMENT);
+                      firstKmer = false;
+                    } else {
+                      idx = nextKmerIndex(idx, tseq[i], K, Direction::REVERSE_COMPLEMENT);
+                    }
+                    if (i+2 < refLen) {
+                    seqFactors[i+2] += probFwd * (readBias.counts[idx]/transcriptKmerDist[idx]) * fld.cdf(refLen - i);
+                    }
+                  }
+
+                  if (gcBiasCorrect) {
+                    for (int32_t fl = fldLow; fl <= fldHigh; ++fl) {
+                      if (i + fl < refLen) {
+                        auto startGC = txp.gcCount(i);
+                        auto stopGC = txp.gcCount(i + fl);
+                        auto gcFrac = std::lrint(100.0 * static_cast<double>(stopGC - startGC) / fl);
+                        // count it in the forward orientation
+                        gcFactors[i] +=
+                          probFwd *
+                          (gcCounts[gcFrac] / (gcPrior + transcriptGCDist[gcFrac])) *
+                          fld.pdf(fl);
+                        // count it in the reverse compliment orientation
+                        gcFactors[i+fl] +=
+                          probRC *
+                          (gcCounts[gcFrac] / (gcPrior + transcriptGCDist[gcFrac])) *
+                          fld.pdf(fl);
+                      }
+                    }
+                  } // end GC bias
+
+                } // end checkFwd
+
+                // Then in the reverse complement direction
+                firstKmer = true;
+                idx = 0;
+                // Start from the end and go until the fragment length
+                // distribution says we should stop
+                if (seqBiasCorrect) {
+                  for (int32_t i = 0; i <= refLen - trunc - 1; ++i) {
+                    if (firstKmer) {
+                      idx = indexForKmer(tseq, K, Direction::FORWARD);
+                      firstKmer = false;
+                    } else {
+                      idx = nextKmerIndex(idx, tseq[i-1+K], K, Direction::FORWARD);
+                    }
+                    if (i+4 < refLen) {
+                    seqFactors[i+4] +=
+                      probRC *
+                      (readBias.counts[idx]/transcriptKmerDist[idx]) *
+                      fld.cdf(i);
+                    }
+                  }
+                }
+
+                if (seqBiasCorrect and gcBiasCorrect) {
+                  for (size_t i = 0; i < refLen; ++i) {
+                    effLength += seqFactors[i] * gcFactors[i];
+                  }
+                  effLength *= (txomeNormFactor / readNormFactor);
+                  effLength *= (txomeGCNormFactor / readGCNormFactor);
+                } else if (seqBiasCorrect) {
+                  for (auto& e : seqFactors) { effLength += e; }
+                  effLength *= (txomeNormFactor / readNormFactor);
+                } else if (gcBiasCorrect) {
+                  for (auto& e : gcFactors) { effLength += e; }
+                  effLength *= (txomeGCNormFactor / readGCNormFactor);
+                }
+              } // for the processed transcript
+
+              if(unprocessedLen > 0.0 and effLength > unprocessedLen) {
+                effLensOut(it) = effLength;
+              } else {
+                effLensOut(it) = effLensIn(it);
+              }
+            }
+
+            return effLensOut;
+        }
+
+
         void aggregateEstimatesToGeneLevel(TranscriptGeneMap& tgm, boost::filesystem::path& inputPath) {
 
             using std::vector;
@@ -517,6 +947,9 @@ namespace sailfish {
             using std::move;
             using std::cerr;
             using std::max;
+
+            constexpr double minTPM = std::numeric_limits<double>::denorm_min();
+
 
             std::ifstream expFile(inputPath.string());
 
@@ -530,6 +963,7 @@ namespace sailfish {
             string l;
             size_t ln{0};
 
+	    bool headerLine{true};
             while (getline(expFile, l)) {
                 if (++ln % 1000 == 0) {
                     cerr << "\r\rParsed " << ln << " expression lines";
@@ -540,11 +974,17 @@ namespace sailfish {
                     if (*it == '#') {
                         comments.push_back(l);
                     } else {
-                        vector<string> toks = split(l);
-                        ExpressionRecord er(toks);
-                        auto gn = tgm.geneName(er.target);
-                        geneExps[gn].push_back(move(er));
-                    }
+		      // If this isn't the first non-comment line
+		      if (!headerLine) {
+			vector<string> toks = split(l);
+			ExpressionRecord er(toks);
+			auto gn = tgm.geneName(er.target);
+			geneExps[gn].push_back(move(er));
+		      } else { // treat the header line as a comment
+			comments.push_back(l);
+			headerLine = false;
+		      }
+		    }
                 }
             }
             cerr << "\ndone\n";
@@ -563,16 +1003,43 @@ namespace sailfish {
             for (auto& kv : geneExps) {
                 auto& gn = kv.first;
 
-                uint32_t geneLength{kv.second.front().length};
+                double geneLength = kv.second.front().length;
+                double geneEffLength = kv.second.front().effLength;
                 vector<double> expVals(kv.second.front().expVals.size(), 0);
                 const size_t NE{expVals.size()};
 
+                size_t tpmIdx{0};
+                double totalTPM{0.0};
                 for (auto& tranExp : kv.second) {
-                    geneLength = max(geneLength, tranExp.length);
+                    // expVals[0] = TPM
+                    // expVals[1] = count
                     for (size_t i = 0; i < NE; ++i) { expVals[i] += tranExp.expVals[i]; }
+                    totalTPM += expVals[tpmIdx];
                 }
 
-                outFile << gn << '\t' << geneLength;
+                // If this gene was expressed
+                if (totalTPM > minTPM) {
+                    geneLength = 0.0;
+		    geneEffLength = 0.0;
+                    for (auto& tranExp : kv.second) {
+                        double frac = tranExp.expVals[tpmIdx] / totalTPM;
+                        geneLength += tranExp.length * frac;
+                        geneEffLength += tranExp.effLength * frac;
+                    }
+                } else {
+                    geneLength = 0.0;
+		    geneEffLength = 0.0;
+                    double frac = 1.0 / kv.second.size();
+                    for (auto& tranExp : kv.second) {
+                        geneLength += tranExp.length * frac;
+                        geneEffLength += tranExp.effLength * frac;
+                    }
+                }
+
+                // Otherwise, if the gene wasn't expressed, the length
+                // is reported as the longest transcript length.
+
+                outFile << gn << '\t' << geneLength << '\t' << geneEffLength;
                 for (size_t i = 0; i < NE; ++i) {
                     outFile << '\t' << expVals[i];
                 }
@@ -586,8 +1053,7 @@ namespace sailfish {
 
         void generateGeneLevelEstimates(boost::filesystem::path& geneMapPath,
                 boost::filesystem::path& estDir,
-                std::string aggKey,
-                bool haveBiasCorrectedFile) {
+                std::string aggKey) {
             namespace bfs = boost::filesystem;
             std::cerr << "Computing gene-level abundance estimates\n";
             bfs::path gtfExtension(".gtf");
@@ -618,6 +1084,7 @@ namespace sailfish {
             }
 
             /** Create a gene-level summary of the bias-corrected estimates as well if these exist **/
+            /** No more of this bias correction
             if (haveBiasCorrectedFile) {
                 bfs::path biasCorrectEstFilePath = estDir / "quant_bias_corrected.sf";
                 if (!bfs::exists(biasCorrectEstFilePath)) {
@@ -629,8 +1096,21 @@ namespace sailfish {
                     sailfish::utils::aggregateEstimatesToGeneLevel(tranGeneMap, biasCorrectEstFilePath);
                 }
             }
+            */
         }
 
+        // === Explicit instantiations
+        template Eigen::VectorXd updateEffectiveLengths<std::vector<tbb::atomic<double>>>(
+		SailfishOpts& sfopts,
+                ReadExperiment& readExp,
+                Eigen::VectorXd& effLensIn,
+                std::vector<tbb::atomic<double>>& alphas);
+
+        template Eigen::VectorXd updateEffectiveLengths<std::vector<double>>(
+		SailfishOpts& sfopts,
+                ReadExperiment& readExp,
+                Eigen::VectorXd& effLensIn,
+                std::vector<double>& alphas);
     }
 }
 
