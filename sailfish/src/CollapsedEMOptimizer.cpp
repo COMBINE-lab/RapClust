@@ -974,7 +974,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
 
     std::cout << "\n Correct upto this \n" ;
     //print header to fq
-    fq << "#Transcript ID" << "\t" << "numTranscripts" << "\t" << "Count" << "\t" << "tid" << "\t" << "tname" << "...." << "\n" ;
+    fq << "#Eq Class ID" << "\t" << "numTranscripts" << "\t" << "Read Count" << "\t" << "tid" << "\t" << "tname" << "...." << "\n" ;
 
     for (size_t eqID = 0; eqID < numEqClasses; ++eqID) {
         auto& kv = eqVec[eqID];
