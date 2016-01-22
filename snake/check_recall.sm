@@ -93,3 +93,75 @@ rule check_recall:
                         else:
                             nrecoverable += 1
         print(count, recoverable, nrecoverable)
+
+rule check_recall_gtf:
+    input:
+        "sailfishCluster/quant_human.clust",
+        iCl = "./sailfishCluster/quant_human.clust"
+    run:
+        from pyfasta import Fasta
+        import pandas as pd
+        import collections
+        import glob
+        
+        contig2clustDict = {}
+        ifileH = open(input.iCl, 'r')
+        count = 0
+        for line in ifileH:
+            count += 1
+            contigsList = line.strip().split('\t')
+            for contig in contigsList:
+                contig2clustDict[contig] = count
+
+        with open(contig2cuffGene, 'r') as f:
+            data = pd.read_table(f, header=None, names=['contig', 'cuffgene'])
+            contig2cuffGeneDict = data.set_index("contig").to_dict()['cuffgene']
+            gene2contigDict = {k: list(v) for k,v in data.groupby("cuffgene")["contig"]}
+
+        contig2refseqDict = {}
+        with open(cuffGene2refSeq, 'r') as f:
+            data = pd.read_table(f, header=None, names=['cuffgene', 'refseq'])
+            data = data.set_index("cuffgene").to_dict()['refseq']•
+            for contig, cuffgene in contig2cuffGeneDict.items():
+                contig2refseqDict[contig] = data[cuffgene]
+    
+    
+        with open("./Human-Trinity/exonsGTF.tsv", 'r') as f:
+            data = pd.read_table(f, header=None, names=['refseq', 'start', 'end'], sep=" ")
+            start = {k: list(v) for k,v in data.groupby("refseq")["start"]}
+            end = {k: list(v) for k,v in data.groupby("refseq")["end"]}•
+    
+        import itertools
+        recoverable = 0
+        nrecoverable = 0
+        count = 0
+    
+        for gene, contigs in gene2contigDict.items():
+            elements = len(contigs)
+            if elements == 1:
+                continue
+            else:
+                for c1, c2 in list(itertools.combinations(contigs, 2)):
+                    if contig2clustDict[c1] == contig2clustDict[c2]:
+                        continue
+                    else:
+                        refseq1 = contig2refseqDict[c1]
+                        refseq2 = contig2refseqDict[c2]
+                        exons1 = zip(start[refseq1], end[refseq1])
+                        exons2 = zip(start[refseq2], end[refseq2])
+
+                        overlapFlag = False
+                        for exon1 in exons1:
+                            for exon2 in exons2:
+                               if exon1[0] == exon2[0] and exon1[1] == exon2[1]:
+                                    overlapFlag = True
+                                    break
+                            if overlapFlag:
+                                break
+                        if overlapFlag:
+                            recoverable += 1
+                        else:
+                            nrecoverable += 1
+        
+        print(count, recoverable, nrecoverable)
+
