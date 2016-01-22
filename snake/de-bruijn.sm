@@ -1,0 +1,658 @@
+kmerSize = 31
+
+rule run:
+    input:
+        #fa = "1.fa"
+        fa = "3.fa"
+    output:
+        "graph.pdf"
+    run:
+        shell("./FastaToDeBruijn --fasta {input} -K 31 -C 1 --SS > graph.txt")
+        import pandas as pd
+        import copy
+        data = pd.read_table('graph.txt', header=0, names=['id', 'from', '1', '2', '3'])
+        
+        rev = {k: list(v) for k,v in data.groupby("id")["from"]}
+        fwd = {k: list(v) for k,v in data.groupby("from")["id"]}
+        kmer = data.set_index('2')['id'].to_dict()
+        
+
+        count = 0
+        start = 0
+        stack = copy.copy(fwd[-1])
+        mapping = {}
+        while(stack):
+            node = stack.pop()
+            try:
+                succ = fwd[node]
+            except KeyError:
+                mapping[node] = count
+                count += 1
+                continue
+
+            mapping[node] = count
+            if (len(succ) == 1):
+                if (succ[0] in mapping):
+                    count += 1
+                    continue
+                stack.append(succ[0])
+                try:
+                    #if (len(fwd[succ[0]]) != 1 or len(rev[succ[0]]) !=1):
+                    if (len(rev[succ[0]]) !=1):
+                        count += 1
+                except KeyError:
+                    count += 1
+                    continue
+            else:
+                for s in succ:
+                    if s not in mapping:
+                        stack.append(s)
+                count += 1
+        #print (mapping[kmer['GACTTTCAGGGCCTGCTGAGGAATCTGCAGG']])
+        with open('graph.dot', 'w') as file:
+            file.write("digraph all {\n")
+            from pyfasta import Fasta
+            ref = Fasta(input.fa)
+            col = 0
+            for id in sorted(ref.keys()):
+                seq = ref[id]
+                for ind in range(len(seq)-31):
+                    if (str(mapping[kmer[seq[ind:ind+31]]]) != str(mapping[kmer[seq[ind+1:ind+32]]]) ):
+                        file.write(str(mapping[kmer[seq[ind:ind+31]]]) + " -> " + str(mapping[kmer[seq[ind+1:ind+32]]]) + '[color= "#' + "{:06x}".format(col) +'",penwidth=4.0, label='+ str(ind+1)  +"] ;\n")
+                col += 100
+            file.write("}\n")
+        shell("dot -Tpdf ./graph.dot -o ./graph.pdf")
+rule run_orig_collapsed:
+    input:
+        fa = "1.fa"
+        #fa = "test.fasta"
+    output:
+        "graph.pdf"
+    run:
+        shell("./FastaToDeBruijn --fasta {input} -K 31 -C 1 --SS > graph.txt")
+        import pandas as pd
+        import copy
+        data = pd.read_table('graph.txt', header=0, names=['id', 'from', '1', '2', '3'])
+        
+        rev = {k: list(v) for k,v in data.groupby("id")["from"]}
+        fwd = {k: list(v) for k,v in data.groupby("from")["id"]}
+        kmer = data.set_index('2')['id'].to_dict()
+        
+    
+        count = 0
+        start = 0
+        stack = copy.copy(fwd[-1])
+        mapping = {}
+        while(stack):
+           node = stack.pop()
+           try:
+               succ = fwd[node]
+           except KeyError:
+               mapping[node] = count
+               count += 1
+               continue
+    
+           mapping[node] = count
+           if (len(succ) == 1):
+               if (succ[0] in mapping):
+                   count += 1
+                   continue
+               stack.append(succ[0])
+               try:
+                   if (len(fwd[succ[0]]) != 1 or len(rev[succ[0]]) !=1):
+                       count += 1
+               except KeyError:
+                   count += 1
+                   continue
+           else:
+               for s in succ:
+                   if s not in mapping:
+                       stack.append(s)
+               count += 1
+        #print (mapping[kmer['GACTTTCAGGGCCTGCTGAGGAATCTGCAGG']])
+        edge = []
+        with open('graph.dot', 'w') as file:
+            file.write("digraph all {\n")
+            from pyfasta import Fasta
+            ref = Fasta(input.fa)
+            for id in sorted(ref.keys()):
+                seq = ref[id]
+                for ind in range(len(seq)-31):
+                    if (str(mapping[kmer[seq[ind:ind+31]]]) != str(mapping[kmer[seq[ind+1:ind+32]]]) and (str(mapping[kmer[seq[ind:ind+31]]]), str(mapping[kmer[seq[ind+1:ind+32]]])) not in edge ):
+                        file.write(str(mapping[kmer[seq[ind:ind+31]]]) + " -> " + str(mapping[kmer[seq[ind+1:ind+32]]]) +" ;\n")
+                        edge.append((str(mapping[kmer[seq[ind:ind+31]]]), str(mapping[kmer[seq[ind+1:ind+32]]])))
+            file.write("}\n")
+        shell("dot -Tpdf ./graph.dot -o ./graph.pdf")
+
+
+rule run_orig:
+    input:
+        "1901.fa"
+    output:
+        "graph.pdf"
+    run:
+        shell("./FastaToDeBruijn --fasta {input} -K 31 -C 1 --SS > graph.txt")
+        import pandas as pd
+        data = pd.read_table('graph.txt', header=0, names=['id', 'from', '1', '2', '3'])
+        
+        with open('graph.dot', 'w') as file:
+            file.write("digraph all {\n")
+            for index, row in data.iterrows():
+                prev = int(row['from'])
+                if prev == -1:
+                    prev = 0
+                next = int(row['id'])
+                if next == -1:
+                    next = 0
+                file.write(str(prev) + " -> " + str(next) + " ;\n")
+            file.write("}\n")
+        shell("dot -Tpdf ./graph.dot -o ./graph.pdf")
+
+rule run_orig_color:
+    input:
+        fa = "1901.fa"
+    output:
+        "graph.pdf"
+    run:
+        shell("./FastaToDeBruijn --fasta {input} -K 31 -C 1 --SS > graph.txt")
+        import pandas as pd
+        data = pd.read_table('graph.txt', header=0, names=['id', 'from', '1', '2', '3'])
+        
+        rev = {k: list(v) for k,v in data.groupby("id")["from"]}
+        fwd = {k: list(v) for k,v in data.groupby("from")["id"]}
+        kmer = data.set_index('2')['id'].to_dict()
+        
+        with open('graph.dot', 'w') as file:
+            file.write("digraph all {\n")
+            
+            from pyfasta import Fasta
+            ref = Fasta(input.fa)
+            color = ['red', 'green', 'blue', 'yellow']
+            col = 0
+            for id in sorted(ref.keys()):
+                #print (id)
+                seq = ref[id]
+                for ind in range(len(seq)-31):
+                    ckmer = seq[ind:ind+31]
+                    nkmer = seq[ind+1:ind+32]
+                    if (str(kmer[ckmer]) != str(kmer[nkmer]) ):
+                        file.write(str(kmer[ckmer]) + " -> " + str(kmer[nkmer])  + "[color=" + color[col]  +",penwidth=3.0] ;\n")
+                col += 1
+
+            file.write("}\n")
+        shell("dot -Tpdf ./graph.dot -o ./graph.pdf")
+
+rule get_exon:
+    input:
+        fa = "1.fa"
+    run:
+        shell("./FastaToDeBruijn --fasta {input} -K 31 -C 1 --SS > graph.txt")
+        import pandas as pd
+        import copy
+        data = pd.read_table('graph.txt', header=0, names=['id', 'from', '1', '2', '3'])
+        
+        rev = {k: list(v) for k,v in data.groupby("id")["from"]}
+        fwd = {k: list(v) for k,v in data.groupby("from")["id"]}
+        kmer = data.set_index('2')['id'].to_dict()
+
+        count = 0
+        start = 0
+        stack = copy.copy(fwd[-1])
+        mapping = {}
+        while(stack):
+            node = stack.pop()
+            try:
+                succ = fwd[node]
+            except KeyError:
+                mapping[node] = count
+                count += 1
+                continue
+
+            mapping[node] = count
+            if (len(succ) == 1):
+                if (succ[0] in mapping):
+                    count += 1
+                    continue
+                stack.append(succ[0])
+                try:
+                    if (len(rev[succ[0]]) != 1): #len(fwd[succ[0]]) != 1 or len(rev[succ[0]]) !=1):
+                        count += 1
+                except KeyError:
+                    count += 1
+                    continue
+            else:
+                for s in succ:
+                    if s not in mapping:
+                        stack.append(s)
+                count += 1
+        
+        from pyfasta import Fasta
+        import collections
+        ref = Fasta(input.fa)
+        exon = collections.defaultdict(set)
+        for id in sorted(ref.keys()):
+            seq = ref[id]
+            oldSeq = seq[0:kmerSize]
+            for ind in range(len(seq)-kmerSize):
+                kmerSeq = seq[ind:ind+kmerSize]
+                nextKmerSeq = seq[ind+1:ind+1+kmerSize]
+                if (ind == len(seq)-kmerSize-1):
+                    exon[oldSeq+nextKmerSeq[-1]].add(id)
+                elif (mapping[kmer[kmerSeq]] == mapping[kmer[nextKmerSeq]]):
+                    oldSeq += nextKmerSeq[-1]
+                else:
+                    if (ind == len(seq)-kmerSize):
+                        exon[oldSeq].add(id)
+                    exon[oldSeq].add(id)
+                    oldSeq = nextKmerSeq
+
+        count = 1
+        with open(input.fa + '.exon', 'w') as file:
+            for k, v in exon.items():
+                if len(v) > 1:
+                    file.write(">{}\n{}\n".format(count ,k))
+                    count += 1
+        with open("./graph.dot", 'w') as file:
+            file.write("digraph all {\n")
+            from pyfasta import Fasta
+            ref = Fasta(input.fa)
+            col = 0
+            for id in sorted(ref.keys()):
+                last = 0
+                seq = ref[id]
+                count = 0
+                for ind in range(len(seq)-31):
+                    count += 1
+                    oldMap = str(mapping[kmer[seq[ind:ind+31]]])
+                    newMap = str(mapping[kmer[seq[ind+1:ind+32]]])
+                    if (oldMap != newMap ):
+                        file.write(oldMap + " -> " + newMap + '[color= "#' + "{:06x}".format(col) +'",penwidth=4.0, label='+ str(ind+1)  +"] ;\n")
+                        last = ind + 1
+                #print (count, len(seq))
+                #print (id, str(mapping[kmer[seq[0:31]]]))
+
+                col += 100
+            file.write("}\n")
+        shell("dot -Tpdf ./graph.dot -o ./graph.pdf")
+        shell("rm {input}.flat {input}.gdx graph.txt graph.dot")
+        shell("/usr/bin/blastn -db all.db -query {input.fa}.exon -outfmt 6 -out ava.tsv -num_threads 20")
+rule get_similarity:
+    input:
+        tsv = "ava.tsv"
+    run:
+        from munkres import Munkres
+        import pandas as pd
+        import numpy as np
+
+        with open(input.tsv, 'r') as f:
+            data = pd.read_table(f, header=None, names=["clusterId", "tId", 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'eval', 'i'])
+            data = data.ix[:, ['clusterId', 'tId', 'eval']]
+        transcripts = sorted(list(set(data['tId'])))
+        clusters = sorted(list(set(data['clusterId'])))
+        
+
+        valDict = data.to_dict('index')
+        matrix = np.ones((len(clusters), len(transcripts))) * 1000
+        for _,v in valDict.items():
+            old = matrix[clusters.index(v['clusterId'])][transcripts.index(v['tId'])]
+            if old > v['eval']:
+                matrix[clusters.index(v['clusterId'])][transcripts.index(v['tId'])] = v['eval']
+        #print (matrix)
+        m = Munkres()
+        indexes = m.compute(matrix)
+        with open("../../../../Human-Trinity/transc2gene.txt", 'r') as f:
+            t2g = pd.read_table(f, header=0, names = ['transcript', 'gene'])
+            t2g = t2g.set_index('transcript').to_dict()['gene']
+
+        for index, row in data.iterrows():
+            try:
+                data.set_value(index, 'tId', t2g[row['tId']])
+            except KeyError:
+                continue
+        with pd.option_context('display.max_rows', 999, 'display.max_columns', 3):
+            print (data.sort_values(by = ['clusterId', 'eval']))
+            #data =  {k: list(v) for k,v in data.groupby("gene")["transcript"]}
+        #print (data)
+        df = []
+        for row, column in indexes:
+            value = matrix[row][column]
+            df.append(t2g[transcripts[column]])
+            #print ('({}, {}) -> {}'.format(clusters[row], transcripts[column], value))
+            try:
+                print ('({}, {}, {}) -> {}'.format(clusters[row], transcripts[column], t2g[transcripts[column]], value))
+            except KeyError:
+                continue
+
+        
+
+        import collections
+
+        print (collections.Counter(df))
+
+contig2cuffGene = "../../../../Human-Trinity/contig2cuffGene.txt"
+
+#from Cufflink's .diff file cufflink gene(XLOC) --> refseq (NM***)
+cuffGene2refSeq = "../../../../Human-Trinity/cuffGene2refSeq.txt"
+
+#from Ensemble using script
+#mysql --user=genome -N --host=genome-mysql.cse.ucsc.edu -A -D hg19 -e 'select name,name2 from refGene' > refseq.txt
+#refseq --> Gene mapping
+refSeq2gene = "../../../../Human-Trinity/refSeq2gene.txt"
+
+#Human Transcriptome from Ensemble
+transcriptome = "../../../../Human-Trinity/Human_Genome.transcripts.fa"
+
+#from Ensemble transcriptID --> geneId
+transcript2gene = "../../../../Human-Trinity/transc2gene.txt"
+
+rule generate_cluster:
+    input:
+        iCl = "quant_human.clust"
+    run:
+        from pyfasta import Fasta
+        import collections
+        import pandas as pd
+        contig2gene = {}
+
+        with open(contig2cuffGene, 'r') as f:
+            data = pd.read_table(f, header=None, names=['contig', 'cuffgene'])
+            contig2gene = data.set_index("contig").to_dict()['cuffgene']
+
+        with open(cuffGene2refSeq, 'r') as f:
+            data = pd.read_table(f, header=None, names=["cuffgene", "refseq"])
+            data = data.set_index("cuffgene").to_dict()['refseq']
+            for k,v in contig2gene.items():
+                contig2gene[k] = data[contig2gene[k]]
+        
+        ccount = 0
+        with open(refSeq2gene, 'r') as f:
+            data = pd.read_table(f, header=None, names=["refseq", "gene"])
+            data = data.set_index("refseq").to_dict()['gene']
+            for k,v in contig2gene.items():
+                try:
+                    contig2gene[k] = data[contig2gene[k]]
+                except:
+                    ccount +=1
+        #print (ccount)
+        
+        with open("../../../../Human-Trinity/martquery_0111195912_754.txt") as f:
+            data = pd.read_table(f, header=0, names=["gene", "pgene", "conf"])
+            getParalogGene = {k: list(v) for k,v in data.groupby("gene")["pgene"]}
+ 
+        with open ('../../../../Human-Trinity/mart_export.txt') as f:
+            data = pd.read_table(f, header=0, names=["ensemble", "geneId"])
+            ensembleToGeneName = data.set_index("ensemble").to_dict()['geneId']
+       
+        #print (pd.isnull(getParalogGene['MT-TF'][0] ))
+        
+        for gene, pGenes in getParalogGene.items():
+            pGenesMod = []
+            for pGene in pGenes:
+                if not(pd.isnull(pGene)) and pGene in ensembleToGeneName:
+                    pGenesMod.append(ensembleToGeneName[pGene])
+            getParalogGene[gene] = pGenesMod
+        
+        with open('../../../../Human-Trinity/strand.txt') as f:
+            data = pd.read_table(f, header=0, names=["strand", "geneId"])
+            strand = data.set_index("geneId").to_dict()['strand']
+
+        ifileH = open(input.iCl,'r')
+        ofileH = open(input.iCl+".mod", 'w')
+        count = 0
+        for line in ifileH:
+            contigsList = line.strip().split('\t')
+            geneList = []
+            pGenes = []
+            for contig in contigsList:
+                #count += 1
+                if contig in contig2gene.keys():
+                    geneList.append(contig2gene[contig])
+
+            if len(geneList) > 0:
+                counter = collections.Counter(geneList)
+                freqList = list(counter.values())
+                total = freqList.count(max(freqList))
+                freqGenes = [elem[0] for elem in counter.most_common(total)]
+                for freqGene in freqGenes:
+                    if freqGene in getParalogGene:
+                        pGenes = getParalogGene[freqGene]
+            
+            if len(pGenes) != 0:
+                nContigList = collections.defaultdict(list)
+                for contig in contigsList:
+                    if contig in contig2gene:
+                        if contig2gene[contig] in pGenes:
+                            nContigList[contig2gene[contig]].append(contig)
+                        else:
+                            count += 1
+                            if contig2gene[contig] in strand and strand[contig2gene[contig]] == -1:
+                                nContigList['-1'].append(contig)
+                            else:
+                                nContigList['1'].append(contig)
+                    else:
+                        nContigList['1'].append(contig)
+                for gene, cluster in nContigList.items():
+                    #count += 1
+                    ofileH.write('\t'.join(cluster)+'\n')
+            else:
+                if len(geneList) > 0:
+                    nContigList = collections.defaultdict(list)
+                    for contig in contigsList:
+                        if contig in contig2gene:
+                            if contig2gene[contig] in strand and strand[contig2gene[contig]] == -1:
+                                nContigList['-1'].append(contig)
+                            else:
+                                nContigList['1'].append(contig)
+                        else:
+                            nContigList['1'].append(contig)
+                    for gene, cluster in nContigList.items():
+                        count += 1
+                        ofileH.write('\t'.join(cluster)+'\n')
+                else:
+                    ofileH.write(line)
+
+        print ("{} modifications".format(count))
+
+
+
+rule generate_cluster_strand:
+    input:
+        iCl = "quant_human.clust"
+    run:
+        from pyfasta import Fasta
+        import collections
+        import pandas as pd
+        contig2gene = {}
+
+        with open(contig2cuffGene, 'r') as f:
+            data = pd.read_table(f, header=None, names=['contig', 'cuffgene'])
+            contig2gene = data.set_index("contig").to_dict()['cuffgene']
+
+        with open(cuffGene2refSeq, 'r') as f:
+            data = pd.read_table(f, header=None, names=["cuffgene", "refseq"])
+            data = data.set_index("cuffgene").to_dict()['refseq']
+            for k,v in contig2gene.items():
+                contig2gene[k] = data[contig2gene[k]]
+        
+        ccount = 0
+        with open(refSeq2gene, 'r') as f:
+            data = pd.read_table(f, header=None, names=["refseq", "gene"])
+            data = data.set_index("refseq").to_dict()['gene']
+            for k,v in contig2gene.items():
+                try:
+                    contig2gene[k] = data[contig2gene[k]]
+                except:
+                    ccount +=1
+        #print (ccount)
+        
+        with open("../../../../Human-Trinity/martquery_0111195912_754.txt") as f:
+            data = pd.read_table(f, header=0, names=["gene", "pgene", "conf"])
+            getParalogGene = {k: list(v) for k,v in data.groupby("gene")["pgene"]}
+ 
+        with open ('../../../../Human-Trinity/mart_export.txt') as f:
+            data = pd.read_table(f, header=0, names=["ensemble", "geneId"])
+            ensembleToGeneName = data.set_index("ensemble").to_dict()['geneId']
+       
+        #print (pd.isnull(getParalogGene['MT-TF'][0] ))
+        
+        for gene, pGenes in getParalogGene.items():
+            pGenesMod = []
+            for pGene in pGenes:
+                if not(pd.isnull(pGene)) and pGene in ensembleToGeneName:
+                    pGenesMod.append(ensembleToGeneName[pGene])
+            getParalogGene[gene] = pGenesMod
+        
+        with open('../../../../Human-Trinity/strand.txt') as f:
+            data = pd.read_table(f, header=0, names=["strand", "geneId"])
+            strand = data.set_index("geneId").to_dict()['strand']
+
+        ifileH = open(input.iCl,'r')
+        ofileH = open(input.iCl+".mod", 'w')
+        count = 0
+        for line in ifileH:
+            contigsList = line.strip().split('\t')
+            geneList = []
+            pGenes = []
+            for contig in contigsList:
+                #count += 1
+                if contig in contig2gene.keys():
+                    geneList.append(contig2gene[contig])
+
+            if len(geneList) > 0:
+                nContigList = collections.defaultdict(list)
+                for contig in contigsList:
+                    if contig in contig2gene:
+                        if contig2gene[contig] in strand and strand[contig2gene[contig]] == -1:
+                            nContigList['-1'].append(contig)
+                        else:
+                            nContigList['1'].append(contig)
+                    else:
+                        nContigList['1'].append(contig)
+                for gene, cluster in nContigList.items():
+                    count += 1
+                    ofileH.write('\t'.join(cluster)+'\n')
+            else:
+                ofileH.write(line)
+        print ("{} modifications".format(count))
+
+
+rule generate_cluster_strand_re:
+    input:
+        iCl = "quant_human.clust"
+    run:
+        from pyfasta import Fasta
+        import collections
+        import pandas as pd
+        contig2gene = {}
+
+        with open(contig2cuffGene, 'r') as f:
+            data = pd.read_table(f, header=None, names=['contig', 'cuffgene'])
+            contig2gene = data.set_index("contig").to_dict()['cuffgene']
+
+        with open(cuffGene2refSeq, 'r') as f:
+            data = pd.read_table(f, header=None, names=["cuffgene", "refseq"])
+            data = data.set_index("cuffgene").to_dict()['refseq']
+            for k,v in contig2gene.items():
+                contig2gene[k] = data[contig2gene[k]]
+        
+        ccount = 0
+        with open(refSeq2gene, 'r') as f:
+            data = pd.read_table(f, header=None, names=["refseq", "gene"])
+            data = data.set_index("refseq").to_dict()['gene']
+            for k,v in contig2gene.items():
+                try:
+                    contig2gene[k] = data[contig2gene[k]]
+                except:
+                    ccount +=1
+        #print (ccount)
+        
+        with open("../../../../Human-Trinity/martquery_0111195912_754.txt") as f:
+            data = pd.read_table(f, header=0, names=["gene", "pgene", "conf"])
+            getParalogGene = {k: list(v) for k,v in data.groupby("gene")["pgene"]}
+ 
+        with open ('../../../../Human-Trinity/mart_export.txt') as f:
+            data = pd.read_table(f, header=0, names=["ensemble", "geneId"])
+            ensembleToGeneName = data.set_index("ensemble").to_dict()['geneId']
+       
+        #print (pd.isnull(getParalogGene['MT-TF'][0] ))
+        
+        for gene, pGenes in getParalogGene.items():
+            pGenesMod = []
+            for pGene in pGenes:
+                if not(pd.isnull(pGene)) and pGene in ensembleToGeneName:
+                    pGenesMod.append(ensembleToGeneName[pGene])
+            getParalogGene[gene] = pGenesMod
+        
+        with open('../../../../Human-Trinity/strand.txt') as f:
+            data = pd.read_table(f, header=0, names=["strand", "geneId"])
+            strand = data.set_index("geneId").to_dict()['strand']
+        
+        
+        ifileH = open(input.iCl,'r')
+        ofileH = open(input.iCl+".mod", 'w')
+        count1 = count2 = count3 = count4 = 0
+        for line in ifileH:
+            contigsList = line.strip().split('\t')
+            geneList = []
+            pGenes = []
+            for contig in sorted(contigsList):
+                #count += 1
+                if contig in contig2gene:
+                    geneList.append(contig2gene[contig])
+
+            if len(geneList) > 0:
+                nContigList = collections.defaultdict(list)
+                counter = collections.Counter(geneList)
+                freqList = list(counter.values())
+                total = freqList.count(max(freqList))
+                freqGenes = [elem[0] for elem in counter.most_common(total)]
+                for freqGene in geneList:#freqGenes:
+                    if freqGene in getParalogGene:
+                        pGenes += getParalogGene[freqGene]
+                
+                for contig in sorted(contigsList):
+                    if contig in contig2gene:
+                        if contig2gene[contig] in strand and strand[contig2gene[contig]] == -1:
+                            if contig2gene[contig] in pGenes:
+                                count1 +=1
+                                nContigList['-1'+contig2gene[contig]].append(contig)
+                            else:
+                                count2 += 1
+                                nContigList['-1'+freqGene[0]].append(contig)
+                        else:
+                            if contig2gene[contig] in pGenes:
+                                count3 += 1
+                                nContigList['1'+contig2gene[contig]].append(contig)
+                            else:
+                                count4 += 1
+                                nContigList['1'+freqGene[0]].append(contig)
+                    else:
+                        nContigList['1'+freqGene[0]].append(contig)
+                for gene, cluster in nContigList.items():
+                    ofileH.write('\t'.join(cluster)+'\n')
+            else:
+                ofileH.write(line)
+        print ("{} modifications{} {} {}".format(count1, count2, count3, count4))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
