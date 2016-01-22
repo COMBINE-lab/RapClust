@@ -22,4 +22,18 @@ transcript2gene = "Human-Trinity/transc2gene.txt"
 clustFile = "sailfishCluster/quant_human.clust"
 clustPath = "clusters/"
 
+#msa Path
+msa = "msa/"
+msaAll = "msaAll/"
+
+##################################################
+# variables for testing
+one_cluster = "clusters/49.fa"
+one_msa = "./msaAll/49.fa.msa"
+##################################################
+
+
 include: "check_recall.sm"
+include: "de-bruijn.sm"
+include: "dp.sm"
+include: "get_data_SRA.sm"
