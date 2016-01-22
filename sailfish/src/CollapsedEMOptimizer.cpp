@@ -1031,6 +1031,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
                         }
                     }
                 }
+                fq << txps[groupSize-1] << "\t" << transcripts[txps[groupSize-1]].RefName << "\t";
             }else{
                 auto key = std::make_tuple(txps[0],txps[0]) ;
 
