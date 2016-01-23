@@ -915,6 +915,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     std::cout << "\n Inside Clustering \n" ;
     std::ofstream fp ;
     std::ofstream fq ;
+    std::ofstream fs;
     //fp.open("graph_out_1.net") ;
     std::cout<<"\n Give file name: \n" ;
     const std::string file_name = outfile+".net" ;
@@ -934,6 +935,18 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
                 activeTranscriptIDs.insert(t);
            }
     }
+
+    ////////////////////////////////////////////////////////////////
+    // creating .strand file
+    const std::string strandCountFile = outfile+".strand" ;
+    fs.open(strandCountFile);
+
+    //for (size_t i =0; i<transcripts.size(); i++){
+    //Transcript tr = transcripts[i];
+    for(auto& tr: transcripts){
+        fs<<tr.RefName<<"\t"<< tr.fwdHitCount()<<"\t"<<tr.revHitCount() <<"\n";
+    }
+    ///////////////////////////////////////////////////////////////
 
     // make a matrix out of it
     // iterate over equivalence classes make matrix
