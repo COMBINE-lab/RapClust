@@ -1,3 +1,4 @@
+
 rule check_recall:
     input:
         "sailfishCluster/quant_human.clust",
@@ -42,7 +43,7 @@ rule check_recall:
             contigsList = line.strip().split('\t')
             for contig in contigsList:
                 contig2clustDict[contig] = count
-
+        
         ncRefSeq = []
         count =0
         gene2RefSeqDict = collections.defaultdict(list)
@@ -96,14 +97,13 @@ rule check_recall:
 
 rule check_recall_gtf:
     input:
-        "sailfishCluster/quant_human.clust",
-        iCl = "./sailfishCluster/quant_human.clust"
+        iCl = "./sailfishCluster/output.clust"
     run:
         from pyfasta import Fasta
         import pandas as pd
         import collections
         import glob
-        
+    
         contig2clustDict = {}
         ifileH = open(input.iCl, 'r')
         count = 0
@@ -121,27 +121,29 @@ rule check_recall_gtf:
         contig2refseqDict = {}
         with open(cuffGene2refSeq, 'r') as f:
             data = pd.read_table(f, header=None, names=['cuffgene', 'refseq'])
-            data = data.set_index("cuffgene").to_dict()['refseq']•
+            data = data.set_index("cuffgene").to_dict()['refseq'] 
             for contig, cuffgene in contig2cuffGeneDict.items():
                 contig2refseqDict[contig] = data[cuffgene]
-    
-    
+
+
         with open("./Human-Trinity/exonsGTF.tsv", 'r') as f:
             data = pd.read_table(f, header=None, names=['refseq', 'start', 'end'], sep=" ")
             start = {k: list(v) for k,v in data.groupby("refseq")["start"]}
-            end = {k: list(v) for k,v in data.groupby("refseq")["end"]}•
-    
+            end = {k: list(v) for k,v in data.groupby("refseq")["end"]} 
+
         import itertools
         recoverable = 0
         nrecoverable = 0
         count = 0
-    
+        contigsList = []
+
         for gene, contigs in gene2contigDict.items():
             elements = len(contigs)
             if elements == 1:
                 continue
             else:
                 for c1, c2 in list(itertools.combinations(contigs, 2)):
+                    count += 1
                     if contig2clustDict[c1] == contig2clustDict[c2]:
                         continue
                     else:
@@ -159,9 +161,41 @@ rule check_recall_gtf:
                             if overlapFlag:
                                 break
                         if overlapFlag:
+                            contigsList.append(tuple([c1, c2]))
                             recoverable += 1
                         else:
                             nrecoverable += 1
-        
         print(count, recoverable, nrecoverable)
+        
+        with open("./sailfishCluster/overlapping.contigs", 'w') as f:
+            for (c1, c2) in contigsList:
+                f.write(c1 + "\t" + c2 + "\n")
+
+
+
+rule get_recall:
+    input:
+        olapFile = "sailfishCluster/overlapping.contigs",
+        netFile = "sailfishCluster/output.net"
+    run:
+        import pandas as pd
+        with open(olapFile) as f:
+            olap = pd.read_table(f, header=None, names=['c1', 'c2'])
+        
+        with open(netFile) as f:
+            net = pd.read_table(f, header=None, names=['c1', 'c2', 'score'])
+        
+        netSet = []
+        for i in range(len(net)):
+            netSet.append(set([net.loc[i]['c1'], net.loc[i]['c2']]))
+        
+        for i in range(len(olap)):
+            pair = set([olap.loc[i]['c1'], olap.loc[i]['c2']])
+            if pair in netSet:
+                count += 1
+        
+        tp = len(olap) + count
+        fn = len(olap) - count
+        recall = tp / float(fn + tp)
+        print (recall)
 
