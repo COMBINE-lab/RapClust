@@ -917,8 +917,8 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     std::ofstream fq ;
     //fp.open("graph_out_1.net") ;
     std::cout<<"\n Give file name: \n" ;
-    const std::string file_name = outfile+".net" ;
-    const std::string eqFile = outfile+".eq" ;
+    const std::string file_name = outfile+'/'+"graph.net" ;
+    const std::string eqFile = outfile+"/eqclass.eq" ;
     //std::cin>>file_name ;
     fp.open(file_name) ;
     fq.open(eqFile) ;
@@ -1068,6 +1068,9 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     for (auto& p:adjList){
          auto key = p.first ;
          adjList[key] = adjList[key] / (transcripts[std::get<0>(key)].estCount()+transcripts[std::get<1>(key)].estCount());
+         if((transcripts[std::get<0>(key)].estCount()+transcripts[std::get<1>(key)].estCount()) == 0){
+             adjList[key] = 0 ;
+         }
     }
 
     int cc = 0 ;
@@ -1089,7 +1092,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     }
     std::string runMCL = "mcl " + file_name + " --abc" + " -te 1" + " -o " + outfile +".clust" + " -abc-tf" +  " 'gq(0.2)'" ;
     //std::cout<<runMCL << "\n" ;
-    std::system(runMCL.c_str()) ;
+    //std::system(runMCL.c_str()) ;
 //
 //    for (size_t eqID = 0; eqID < numEqClasses; ++eqID) {
 //        auto& kv = eqVec[eqID];
