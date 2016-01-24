@@ -109,7 +109,8 @@ void processReadsQuasi(paired_parser* parser,
                SailfishOpts& sfOpts,
                FragLengthCountMap& flMap,
                std::atomic<int32_t>& remainingFLOps,
-	           std::mutex& iomutex) {
+	           std::mutex& iomutex,
+               std::fstream &binDump) {
 
   uint32_t maxFragLen = sfOpts.maxFragLen;
   uint64_t prevObservedFrags{1};
@@ -168,7 +169,6 @@ void processReadsQuasi(paired_parser* parser,
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> dis(0, sfOpts.maxReadOccs);
-
 
   while(true) {
     typename paired_parser::job j(*parser); // Get a job from the parser: a bunch of read (at most max_read_group)
@@ -251,6 +251,25 @@ void processReadsQuasi(paired_parser* parser,
 
 	    //auto sampleIndex = dis(gen) % jointHits.size();
 	    size_t hitIndex{0};
+
+//////////////////////////////////////////
+//       std::string readName = j->data[i].first.header;
+//       binDump.write(reinterpret_cast<const char *> (&readName), readName.size());
+//       binDump.write("\0",sizeof(char));
+//       size_t hits = jointHits.size();
+//       binDump.write(reinterpret_cast<const char *> (&hits), sizeof(size_t));
+//       binDump.write("\0",sizeof(char));
+
+       std::string readName = j->data[i].first.header;
+       binDump.write(readName.c_str(), readName.size());
+       binDump.write("\n",sizeof(char));
+       std::string hits = std::to_string(jointHits.size());
+       binDump.write(hits.c_str(), hits.size());
+       binDump.write("\n",sizeof(char));
+
+/////////////////////////////////////////
+
+
 	    for (auto& h : jointHits) {
                 auto transcriptID = h.transcriptID();
                 auto& txp = transcripts[transcriptID];
@@ -318,6 +337,7 @@ void processReadsQuasi(paired_parser* parser,
                     }
 
                     if (positionOK) {
+                        std:: string orientation;
                         if (compat) {
                             haveCompat = true;
                             txpIDsCompat.push_back(transcriptID);
@@ -326,15 +346,27 @@ void processReadsQuasi(paired_parser* parser,
                             if (fwdHit){
                                 //avi
                                 //case if left matches fwd or right match RC
+                                orientation = "ISF";
                                 transcripts[transcriptID].incFwdHitCount();
                                 fwCompat++;
                             }
                             else {
                                 //avi
                                 //case if left matches RC or right match fwd
+                                orientation = "ISR";
                                 transcripts[transcriptID].incRevHitCount();
                                 rcCompat++;
                             }
+                            //binDump.write(reinterpret_cast<const char *> (&txp.RefName), txp.RefName.size());
+                            //binDump.write("\0", sizeof(char));
+                            //binDump.write( reinterpret_cast<const char *> (&orientation), orientation.size());
+                            //binDump.write("\0", sizeof(char));
+
+                            binDump.write(txp.RefName.c_str(), txp.RefName.size());
+                            binDump.write("\n", sizeof(char));
+                            binDump.write( orientation.c_str(), orientation.size());
+                            binDump.write("\n", sizeof(char));
+
                         }
                         if (!haveCompat and !enforceCompat) {
                             txpIDsAll.push_back(transcriptID);
@@ -365,7 +397,21 @@ void processReadsQuasi(paired_parser* parser,
                         auxSumCompat += 1.0;
                         //avi
                         //case for paired end match and compattible with ISF
-                        if (fwdHit) { fwCompat++; transcripts[transcriptID].incFwdHitCount(); } else { rcCompat++; transcripts[transcriptID].incRevHitCount();}
+                        std::string orientation;
+                        if (fwdHit) { orientation = "ISF"; fwCompat++; transcripts[transcriptID].incFwdHitCount(); }
+                        else { orientation = "ISR"; rcCompat++; transcripts[transcriptID].incRevHitCount();}
+
+                        //binDump.write(reinterpret_cast<const char *> (&txp.RefName), txp.RefName.size());
+                        //binDump.write("\0", sizeof(char));
+                        //binDump.write( reinterpret_cast<const char *> (&orientation), orientation.size());
+                        //binDump.write("\0", sizeof(char));
+
+                        binDump.write(txp.RefName.c_str(), txp.RefName.size());
+                        binDump.write("\n", sizeof(char));
+                        binDump.write( orientation.c_str(), orientation.size());
+                        binDump.write("\n", sizeof(char));
+
+
                     }
                     if (!haveCompat and !enforceCompat) {
                         txpIDsAll.push_back(transcriptID);
@@ -454,7 +500,6 @@ void processReadsQuasi(paired_parser* parser,
                     totalHits / static_cast<float>(prevObservedFrags));
             iomutex.unlock();
         }
-
     } // end for i < j->nb_filled
     prevObservedFrags = numObservedFragments;
   }
@@ -875,6 +920,10 @@ void quasiMapReads(
     //std::vector<FragLengthCountMap> flMaps(numThreads);
     FragLengthCountMap flMap(sfOpts.maxFragLen, 0);
 
+///////////////////////////////////////////////////////////////
+    std::fstream binDump("strand.dump", std::ios::binary | std::ios::out );
+///////////////////////////////////////////////////////////////
+
     // If the read library is paired-end
     // ------ Paired-end --------
     if (rl.format().type == ReadType::PAIRED_END) {
@@ -924,7 +973,8 @@ void quasiMapReads(
                             sfOpts,
                             flMap,
                             remainingFLOps,
-                            iomutex);
+                            iomutex,
+                            binDump);
                 };
                 threads.emplace_back(threadFun);
             } else {
@@ -937,7 +987,8 @@ void quasiMapReads(
                             sfOpts,
                             flMap,
                             remainingFLOps,
-                            iomutex);
+                            iomutex,
+                            binDump);
                 };
             threads.emplace_back(threadFun);
             }
@@ -1051,6 +1102,10 @@ void quasiMapReads(
             computeSmoothedEffectiveLengths(sfOpts, readExp.transcripts(), correctionFactors);
         }
     } // ------ END Single-end --------
+//////////////////////////////////////
+    binDump.close();
+/////////////////////////////////////
+
 }
 
 int mainQuantify(int argc, char* argv[]) {

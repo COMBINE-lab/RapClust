@@ -944,7 +944,8 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     //for (size_t i =0; i<transcripts.size(); i++){
     //Transcript tr = transcripts[i];
     for(auto& tr: transcripts){
-        fs<<tr.RefName<<"\t"<< tr.fwdHitCount()<<"\t"<<tr.revHitCount() <<"\n";
+        double abundance =  tr.estCount()/tr.EffectiveLength;
+        fs<<tr.RefName<<"\t"<< tr.fwdHitCount()<<"\t"<<tr.revHitCount()<<"\t"<<abundance <<"\n";
     }
     fs.close();
     ///////////////////////////////////////////////////////////////
