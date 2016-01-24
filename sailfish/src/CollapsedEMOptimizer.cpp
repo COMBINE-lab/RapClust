@@ -917,8 +917,8 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     std::ofstream fq ;
     //fp.open("graph_out_1.net") ;
     std::cout<<"\n Give file name: \n" ;
-    const std::string file_name = outfile+".net" ;
-    const std::string eqFile = outfile+".eq" ;
+    const std::string file_name = outfile+'/'+"graph.net" ;
+    const std::string eqFile = outfile+"/eqclass.eq" ;
     //std::cin>>file_name ;
     fp.open(file_name) ;
     fq.open(eqFile) ;
