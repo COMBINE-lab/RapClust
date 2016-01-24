@@ -2,7 +2,7 @@
 
 Rscript GetDEGenes.R truth
 Rscript GetDEGenes.R sailfish
-#Rscript GetDEGenes.R corset
+Rscript GetDEGenes.R corset
 
-python DEcomp.py sailfish
-python DEcomp.py corset
+python DEcomp.py --method sailfish
+python DEcomp.py --method corset

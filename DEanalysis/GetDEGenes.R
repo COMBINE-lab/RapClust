@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly=TRUE)
 methods <- lapply(args, tolower)
-dedir <- file.path("/home/laraib/clust")
+dedir <- file.path("de_data")
 
 library(iCOBRA)
 suppressMessages(library(DESeq2))
@@ -15,10 +15,11 @@ getTXImport <- function(methodName) {
 
     # Process depending on the method
     if (methodName == "sailfish") {
-	# Gene <-> transcript mapping
+	    # Gene <-> transcript mapping
     	tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2clust.tsv"), sep="\t")
     } else if (methodName == "truth") {
-       tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t") #truth file
+        #truth file
+        tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t") 
     }
     message("import sailfish results")
     files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
@@ -87,7 +88,7 @@ for (m in methods) {
 
     padj <- data.frame(corset = allres$padj, row.names = clusters)
 	format(padj, scientific=FALSE)
-	write.table(padj, file = "corsetpadj.txt", sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
+	write.table(padj, file = file.path(dedir, "corsetpadj.txt"), sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
     message("Loading corset data")
   }
   first = FALSE
