@@ -94,11 +94,11 @@ with open((path + method + "padj.txt"), 'r') as f:
 
 sortedclusts = sorted(clust2pval, key=lambda key: clust2pval[key]) #sorted by p value
 
-#with open((path + "sigGenes_Human_Genome.txt"), 'r') as f:
-#    sigGenes = f.read().splitlines()
-
 with open((path + "truthpadj.txt"), 'r') as f:
-    sigGenes = [(line.split('\t')[0]) for line in f]
+    data = pd.read_table(f, names = ['clust', 'pval'])
+    gene2pval = data.set_index("clust").to_dict()['pval']
+
+sortedgenes = sorted(gene2pval, key=lambda key: gene2pval[key]) #sorted by p value
 
 print ("Count of true positives for " + method)
 print ("Top ranked clusters" + "\t" + "Uniq True positives")
@@ -107,9 +107,8 @@ for i in range(0,35001):
 	if (i%5000 == 0):
 		print (str(i) + '\t' + str(len(set(tp))))
 	sigclustgene = clust2gene[sortedclusts[i]]
-	if sigclustgene in sigGenes:
+	if sigclustgene in sortedgenes[:i]:
 		tp.append(sigclustgene)
 
-print (str(i) + '\t' + str(len(set(tp))))
 
 

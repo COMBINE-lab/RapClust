@@ -1,5 +1,5 @@
 args <- commandArgs(trailingOnly=TRUE)
-methods <- lapply(args, toupper)
+methods <- lapply(args, tolower)
 dedir <- file.path("/home/laraib/clust")
 
 library(iCOBRA)
@@ -11,27 +11,22 @@ suppressMessages(library(readr))
 getTXImport <- function(methodName) {
     # Where the quantification results are
     quantDir <- normalizePath(file.path(dedir, "quant"))
-	message("quantDir is ", quantDir) 
-    # Gene <-> transcript mapping
-    tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2clust.tsv"), sep="\t")
-    # tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t")
+    message("quantDir is ", quantDir) 
 
     # Process depending on the method
-    if (methodName == "SAILFISH") {
-	message("import sailfish results")
-	files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
-	message(files)
-    	names(files) <- paste0("sample", dir(file.path(quantDir, "sailfish")))
-	message(names(files))
-	txi <- tximport(files, type="sailfish", countsFromAbundance = "no", tx2gene = tx2gene, reader = read_tsv)
-    } else if (methodName == "KALLISTO") {
-	message("import kallisto results")
-    	files <- file.path(quantDir, "kallisto", dir(file.path(quantDir, "kallisto")), "abundance.tsv")
-	message(files)
-    	names(files) <- paste0("sample", dir(file.path(quantDir, "kallisto")))
-	message(names(files))
-	txi <- tximport(files, type="kallisto", countsFromAbundance = "no", tx2gene = tx2gene, reader = read_tsv)
+    if (methodName == "sailfish") {
+	# Gene <-> transcript mapping
+    	tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2clust.tsv"), sep="\t")
+    } else if (methodName == "truth") {
+       tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t") #truth file
     }
+    message("import sailfish results")
+    files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
+    message(files)
+    names(files) <- paste0("sample", dir(file.path(quantDir, "sailfish")))
+    message(names(files))
+    txi <- tximport(files, type="sailfish", countsFromAbundance = "lengthScaledTPM", tx2gene = tx2gene, reader = read_tsv)
+
     return(txi)
 } 
 
@@ -65,7 +60,7 @@ rownames(meta) <- meta$sample
 first = TRUE
 for (m in methods) {
 
-  if (m == "SAILFISH") {
+  if ((m == "sailfish") | (m == "truth")) {
 	txis <- lapply(methods, getTXImport)
 	names(txis) <- methods
 
@@ -75,19 +70,9 @@ for (m in methods) {
 	options("scipen"=100, "digits"=4)
     padj <- data.frame(sailfish = allres[[m]]$padj, row.names = rownames(allres[[m]]))
 	format(padj, scientific=FALSE)
-	write.table(padj, file = "sailfishpadj.txt", sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
-  } else if (m == "KALLISTO") {
-	txis <- lapply(methods, getTXImport)
-	names(txis) <- methods
-
-	allres <- lapply(txis, getDEGenesFromTxi, meta = meta, cond_name = "condition", level1 = "A", level2 = "B", sample_name = "sample")
-	names(allres) <- methods
-
-    padj <- data.frame(kallisto = allres[[m]]$padj, row.names = rownames(allres[[m]]))
-	format(padj, scientific=FALSE)
-	write.table(padj, file = "kallistopadj.txt", sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
-    message("Loading kallisto data")
-  } else if (m == "CORSET") {
+	write.table(padj, file = file.path(dedir, paste0("DE_analysis/",m,"padj.txt")), sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
+	#write.table(padj, file = "truthpadj.txt", sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE) #generate ground truth
+  } else if (m == "corset") {
 	dat <- data.matrix(read.csv("/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-counts.txt", header = TRUE, row.names = 1, sep = "\t"))
 	clusters <- rownames(dat)	
 	rownames(dat) <- NULL
