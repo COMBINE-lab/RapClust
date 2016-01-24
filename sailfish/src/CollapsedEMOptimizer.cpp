@@ -1053,6 +1053,9 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     for (auto& p:adjList){
          auto key = p.first ;
          adjList[key] = adjList[key] / (transcripts[std::get<0>(key)].estCount()+transcripts[std::get<1>(key)].estCount());
+         if((transcripts[std::get<0>(key)].estCount()+transcripts[std::get<1>(key)].estCount()) == 0){
+             adjList[key] = 0 ;
+         }
     }
 
     int cc = 0 ;
@@ -1074,7 +1077,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     }
     std::string runMCL = "mcl " + file_name + " --abc" + " -te 1" + " -o " + outfile +".clust" + " -abc-tf" +  " 'gq(0.2)'" ;
     //std::cout<<runMCL << "\n" ;
-    std::system(runMCL.c_str()) ;
+    //std::system(runMCL.c_str()) ;
 //
 //    for (size_t eqID = 0; eqID < numEqClasses; ++eqID) {
 //        auto& kv = eqVec[eqID];
