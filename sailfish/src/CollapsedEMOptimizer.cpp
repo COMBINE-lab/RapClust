@@ -935,6 +935,20 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
            }
     }
 
+    ////////////////////////////////////////////////////////////////
+    // creating .strand file
+    std::ofstream fs;
+    const std::string strandCountFile = outfile+".strand" ;
+    fs.open(strandCountFile);
+
+    //for (size_t i =0; i<transcripts.size(); i++){
+    //Transcript tr = transcripts[i];
+    for(auto& tr: transcripts){
+        fs<<tr.RefName<<"\t"<< tr.fwdHitCount()<<"\t"<<tr.revHitCount() <<"\n";
+    }
+    fs.close();
+    ///////////////////////////////////////////////////////////////
+
     // make a matrix out of it
     // iterate over equivalence classes make matrix
     size_t numEqClasses = eqVec.size();

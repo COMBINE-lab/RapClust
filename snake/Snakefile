@@ -1,0 +1,39 @@
+#from Corset data
+#set of all un-processed contigs
+contigs = "Human-Trinity/contigs.fasta"
+#mapping from contigId --> cufflink gene Id (XLOC)
+contig2cuffGene = "Human-Trinity/contig2cuffGene.txt"
+
+#from Cufflink's .diff file cufflink gene(XLOC) --> refseq (NM***)
+cuffGene2refSeq = "Human-Trinity/cuffGene2refSeq.txt"
+
+#from Ensemble using script
+#mysql --user=genome -N --host=genome-mysql.cse.ucsc.edu -A -D hg19 -e 'select name,name2 from refGene' > refseq.txt
+#refseq --> Gene mapping
+refSeq2gene = "Human-Trinity/refSeq2gene.txt"
+
+#Human Transcriptome from Ensemble
+transcriptome = "Human-Trinity/Human_Genome.transcripts.fa"
+
+#from Ensemble transcriptID --> geneId
+transcript2gene = "Human-Trinity/transc2gene.txt"
+
+#sailfish .clust file, i.e. set of contigId in same cluster in one line
+clustFile = "sailfishCluster/quant_human.clust"
+clustPath = "clusters/"
+
+#msa Path
+msa = "msa/"
+msaAll = "msaAll/"
+
+##################################################
+# variables for testing
+one_cluster = "clusters/49.fa"
+one_msa = "./msaAll/49.fa.msa"
+##################################################
+
+
+include: "check_recall.sm"
+include: "de-bruijn.sm"
+include: "dp.sm"
+include: "get_data_SRA.sm"

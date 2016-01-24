@@ -13,7 +13,7 @@ class Transcript {
 public:
     Transcript(size_t idIn, const char* name, uint32_t len) :
         RefName(name), RefLength(len), EffectiveLength(len), id(idIn),
-        Sequence_(nullptr), mass_(0.0), estCount_(0.0), active_(false) { }
+        Sequence_(nullptr), mass_(0.0), estCount_(0.0), active_(false), fwdHitCount_(0), revHitCount_(0) { }
 
     Transcript(Transcript&& other) {
         id = other.id;
@@ -25,6 +25,8 @@ public:
         mass_.store(other.mass_.load());
         estCount_.store(other.estCount_.load());
         active_ = other.active_;
+        fwdHitCount_.store(other.fwdHitCount_.load());
+        revHitCount_.store(other.revHitCount_.load());
     }
 
     Transcript& operator=(Transcript&& other) {
@@ -36,11 +38,24 @@ public:
         GCCount_ = other.GCCount_;
         mass_.store(other.mass_.load());
         estCount_.store(other.estCount_.load());
+        fwdHitCount_.store(other.fwdHitCount_.load());
+        revHitCount_.store(other.revHitCount_.load());
         active_ = other.active_;
         return *this;
     }
 
     inline double estCount() { return estCount_.load(); }
+
+    ////////////////////////////////////////////////////////////////////////
+    inline double fwdHitCount() { return fwdHitCount_.load();  }
+
+    inline double revHitCount() { return revHitCount_.load();   }
+
+    inline void incFwdHitCount() { fwdHitCount_ += 1;    }
+
+    inline void incRevHitCount() { revHitCount_ += 1;    }
+    /////////////////////////////////////////////////////////////////////////
+
     //inline size_t uniqueCount() { return uniqueCount_.load(); }
     //inline size_t totalCount() { return totalCount_.load(); }
     //inline void addUniqueCount(size_t newCount) { uniqueCount_ += newCount; }
@@ -114,6 +129,8 @@ private:
     //    std::unique_ptr<const char, void(*)(const char*)>(nullptr, [](const char*) {});
     tbb::atomic<double> mass_;
     tbb::atomic<double> estCount_;
+    tbb::atomic<uint64_t> fwdHitCount_;
+    tbb::atomic<uint64_t> revHitCount_;
     bool active_;
 };
 

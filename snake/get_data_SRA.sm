@@ -1,0 +1,91 @@
+
+#org = "yeast"
+#SRApath = "/mnt/scratch3/avi/clustering/yeast/SRA"
+#SRAftppath = "ftp://ftp-trace.ncbi.nlm.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR453/"
+#SRAid = range(453566, 453572)
+#readsPath = "/mnt/scratch3/avi/clustering/yeast/reads"
+#
+#yeastContigs = "/mnt/scratch3/avi/clustering/yeast/assembly/Trinity.fasta"
+#
+#cd_hit_binary = "/mnt/scratch3/avi/clustering/binaries/cd-hit-v4.6.4-2015-0603/cd-hit-est"
+#cd_hit_results = "/mnt/scratch3/avi/clustering/human/cd_hit"
+#cdThreads = 20
+#cdC = [0.95, 0.8]
+#cdN = [10, 4]
+#
+#rule downlaod_yeast_SRA:
+#    output:
+#        SRApath
+#    run:
+#        shell("mkdir -p {}".format(SRApath))
+#        for id in SRAid:
+#            shell("wget -P {0} {1}/SRR{2}/SRR{2}.sra".format(SRApath, SRAftppath, id))
+#
+#rule SRA2fastq:
+#    input:
+#        expand("{path}/SRR{id}.sra", path = SRApath, id=SRAid)
+#    output:
+#        readsPath
+#    run:
+#        shell("mkdir -p {}".format(readsPath))
+#        for id in SRAid:
+#            shell("fastq-dump --split-files -O {} --gzip {}/SRR{}.sra".format(readsPath, SRApath, id))
+#
+#rule run_cd_hit:
+#    input:
+#        yeastContigs
+#    output:
+#        cd_hit_results
+#    run:
+#        shell("mkdir -p {}".format(cd_hit_results))
+#        for i in range(len(cdC)):
+#            shell("{} -i {} -o {}/{} -T {} -M 16000 -c {} -n {}".format(cd_hit_binary, yeastContigs, cd_hit_results, cdC[i], cdThreads, cdC[i], cdN[i]))
+
+
+org = "human"
+SRApath = "/mnt/scratch3/avi/clustering/human/SRA"
+SRAftppath = "ftp://ftp-trace.ncbi.nlm.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR493/"
+SRAid = range(493366, 493372)
+readsPath = "/mnt/scratch3/avi/clustering/human/reads"
+
+humanContigs = "/mnt/scratch3/avi/clustering/human/assembly/Trinity.fasta"
+
+cd_hit_binary = "/mnt/scratch3/avi/clustering/binaries/cd-hit-v4.6.4-2015-0603/cd-hit-est"
+cd_hit_results = "/mnt/scratch3/avi/clustering/human/cd_hit"
+cdThreads = 20
+cdC = [0.95, 0.8]
+cdN = [10, 4]
+
+rule downlaod_human_SRA:
+    output:
+        SRApath
+    run:
+        shell("mkdir -p {}".format(SRApath))
+        for id in SRAid:
+            shell("wget -P {0} {1}/SRR{2}/SRR{2}.sra".format(SRApath, SRAftppath, id))
+
+rule SRA2fastq:
+    input:
+        expand("{path}/SRR{id}.sra", path = SRApath, id=SRAid)
+    output:
+        readsPath
+    run:
+        shell("mkdir -p {}".format(readsPath))
+        for id in SRAid:
+            shell("fastq-dump --split-files -O {} --gzip {}/SRR{}.sra".format(readsPath, SRApath, id))
+
+
+#/usr/bin/time -f "%E, %M" -a -o timing.txt ../../bowtie2-master/bowtie2 -k 200 -x ./Trinity -1 <(gunzip -c ../yeast/reads/SRR453566_1.fastq.gz ../yeast/reads/SRR453567_1.fastq.gz ../yeast/reads/SRR453568_1.fastq.gz ../yeast/reads/SRR453569_1.fastq.gz ../yeast/reads/SRR453570_1.fastq.gz ../yeast/reads/SRR453571_1.fastq.gz) -2 <(gunzip -c ../yeast/reads/SRR453566_2.fastq.gz ../yeast/reads/SRR453567_2.fastq.gz ../yeast/reads/SRR453568_2.fastq.gz ../yeast/reads/SRR453569_2.fastq.gz ../yeast/reads/SRR453570_2.fastq.gz ../yeast/reads/SRR453571_2.fastq.gz) -p 25  > bow200.sam
+
+rule run_bowtie:
+    input:
+        "human/reads/"
+    output:
+        "bowtie2/humanBam"
+    run:
+        shell("mkdir -p bowtie2/humanBam")
+        for id in SRAid:
+            one = "human/reads/SRR{}_1.fastq.gz".format(id)
+            two = "human/reads/SRR{}_2.fastq.gz".format(id)
+            shell("../bowtie2-master/bowtie2 --all -x ./bowtie2/HumanTrinity -1 <(gunzip -c {}) -2 <(gunzip -c {}) -p 25 | samtools view -bS - > bowtie2/humanBam/{}.bam".format(one, two, id))
+

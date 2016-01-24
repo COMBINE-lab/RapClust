@@ -323,7 +323,18 @@ void processReadsQuasi(paired_parser* parser,
                             txpIDsCompat.push_back(transcriptID);
                             auxProbsCompat.push_back(1.0);
                             auxSumCompat += 1.0;
-                            if (fwdHit) { fwCompat++; } else { rcCompat++; }
+                            if (fwdHit){
+                                //avi
+                                //case if left matches fwd or right match RC
+                                transcripts[transcriptID].incFwdHitCount();
+                                fwCompat++;
+                            }
+                            else {
+                                //avi
+                                //case if left matches RC or right match fwd
+                                transcripts[transcriptID].incRevHitCount();
+                                rcCompat++;
+                            }
                         }
                         if (!haveCompat and !enforceCompat) {
                             txpIDsAll.push_back(transcriptID);
@@ -352,7 +363,9 @@ void processReadsQuasi(paired_parser* parser,
                         txpIDsCompat.push_back(transcriptID);
                         auxProbsCompat.push_back(1.0);
                         auxSumCompat += 1.0;
-                        if (fwdHit) { fwCompat++; } else { rcCompat++; }
+                        //avi
+                        //case for paired end match and compattible with ISF
+                        if (fwdHit) { fwCompat++; transcripts[transcriptID].incFwdHitCount(); } else { rcCompat++; transcripts[transcriptID].incRevHitCount();}
                     }
                     if (!haveCompat and !enforceCompat) {
                         txpIDsAll.push_back(transcriptID);
