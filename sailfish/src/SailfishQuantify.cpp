@@ -260,12 +260,12 @@ void processReadsQuasi(paired_parser* parser,
 //       binDump.write(reinterpret_cast<const char *> (&hits), sizeof(size_t));
 //       binDump.write("\0",sizeof(char));
 
-       std::string readName = j->data[i].first.header;
-       binDump.write(readName.c_str(), readName.size());
-       binDump.write("\n",sizeof(char));
-       std::string hits = std::to_string(jointHits.size());
-       binDump.write(hits.c_str(), hits.size());
-       binDump.write("\n",sizeof(char));
+        //std::string readName = j->data[i].first.header;
+       //binDump.write(readName.c_str(), readName.size());
+       //binDump.write("\n",sizeof(char));
+       //std::string hits = std::to_string(jointHits.size());
+       //binDump.write(hits.c_str(), hits.size());
+       //binDump.write("\n",sizeof(char));
 
 /////////////////////////////////////////
 
@@ -363,9 +363,9 @@ void processReadsQuasi(paired_parser* parser,
                             //binDump.write("\0", sizeof(char));
 
                             binDump.write(txp.RefName.c_str(), txp.RefName.size());
-                            binDump.write("\n", sizeof(char));
+                            binDump.write("\t", sizeof(char));
                             binDump.write( orientation.c_str(), orientation.size());
-                            binDump.write("\n", sizeof(char));
+                            binDump.write("\t", sizeof(char));
 
                         }
                         if (!haveCompat and !enforceCompat) {
@@ -407,9 +407,9 @@ void processReadsQuasi(paired_parser* parser,
                         //binDump.write("\0", sizeof(char));
 
                         binDump.write(txp.RefName.c_str(), txp.RefName.size());
-                        binDump.write("\n", sizeof(char));
+                        binDump.write("\t", sizeof(char));
                         binDump.write( orientation.c_str(), orientation.size());
-                        binDump.write("\n", sizeof(char));
+                        binDump.write("\t", sizeof(char));
 
 
                     }
@@ -447,6 +447,7 @@ void processReadsQuasi(paired_parser* parser,
 		++hitIndex;
 	    }
 
+        binDump.write("\n", sizeof(char));
             // NOTE: Normalize auxProbs here if we end up
             // using these weights.
 
