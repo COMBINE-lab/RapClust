@@ -94,8 +94,11 @@ with open((path + method + "padj.txt"), 'r') as f:
 
 sortedclusts = sorted(clust2pval, key=lambda key: clust2pval[key]) #sorted by p value
 
-with open((path + "sigGenes_Human_Genome.txt"), 'r') as f:
-    sigGenes = f.read().splitlines()
+#with open((path + "sigGenes_Human_Genome.txt"), 'r') as f:
+#    sigGenes = f.read().splitlines()
+
+with open((path + "truthpadj.txt"), 'r') as f:
+    sigGenes = [(line.split('\t')[0]) for line in f]
 
 print ("Count of true positives for " + method)
 print ("Top ranked clusters" + "\t" + "Uniq True positives")

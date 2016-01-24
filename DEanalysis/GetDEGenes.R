@@ -14,6 +14,7 @@ getTXImport <- function(methodName) {
 	message("quantDir is ", quantDir) 
     # Gene <-> transcript mapping
     tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2clust.tsv"), sep="\t")
+    # tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t")
 
     # Process depending on the method
     if (methodName == "SAILFISH") {
