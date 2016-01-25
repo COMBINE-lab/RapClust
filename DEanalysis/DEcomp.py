@@ -114,16 +114,19 @@ def genTPRate(method):
                 sigGenes.add(toks[0])
 
     print ("Count of true positives for " + method)
-    print ("Top ranked clusters" + "\t" + "Uniq True positives")
+    print ("Top ranked clusters" + "\t" + "Uniq True positives" + '\t' + "Uniq False positives")
     tp = set([]) # use a set so we don't count duplicates
+    fp = set([])
     for i in range(len(sortedclusts)):
         if (i%5000 == 0):
-            print (str(i) + '\t' + str(len(set(tp))))
+            print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)))
         sigclustgene = clust2gene[sortedclusts[i]]
         if sigclustgene in sigGenes:
             tp.add(sigclustgene)
+        else:
+            fp.add(sigclustgene)
 
-    print (str(i) + '\t' + str(len(set(tp))))
+    print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)))
 
 if __name__ == "__main__":
     genTPRate()
