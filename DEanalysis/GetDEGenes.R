@@ -1,6 +1,7 @@
 args <- commandArgs(trailingOnly=TRUE)
-methods <- lapply(args, tolower)
-dedir <- file.path("/home/laraib/clust/DE_analysis/")
+methods <- lapply(args[1], tolower)
+dedir <- args[2]
+clustFile <- args[3]
 
 library(iCOBRA)
 suppressMessages(library(DESeq2))
@@ -14,16 +15,16 @@ getTXImport <- function(methodName) {
     message("quantDir is ", quantDir) 
 
     # Process depending on the method
-    if (methodName == "sailfish") {
+    tx2gene <- read.csv(file.path(dedir, clustFile), sep="\t")
+    #if (methodName == "sailfish") {
 	# Clust <-> contig mapping
-        tx2gene <- read.csv(file.path(dedir, "contig2clust.tsv"), sep="\t")
-    } else if (methodName == "truth") {
-       tx2gene <- read.csv(file.path(dedir, "contig2cuffGene.txt"), sep="\t") #truth file
-    }
+    #} else if (methodName == "truth") {
+    #   tx2gene <- read.csv(file.path(dedir, "contig2cuffGene.txt"), sep="\t") #truth file
+    #}
     message("import sailfish results")
     files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
     message(files)
-    names(files) <- paste0("sample", dir(file.path(quantDir, "sailfish")))
+    names(files) <- paste0("sample", c("A1", "A2", "A3", "B1", "B2", "B3")) #paste0("sample", dir(file.path(quantDir, "sailfish")))
     message(names(files))
     txi <- tximport(files, type="sailfish", countsFromAbundance = "scaledTPM", tx2gene = tx2gene, reader = read_tsv)
 
@@ -72,7 +73,7 @@ for (m in methods) {
 	format(padj, scientific=FALSE)
 	write.table(padj, file = file.path(dedir, paste0(m,"padj.txt")), sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
   } else if (m == "corset") {
-	dat <- data.matrix(read.csv("/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-counts.txt", header = TRUE, row.names = 1, sep = "\t"))
+	dat <- data.matrix(read.csv(file.path(dedir, clustFile), header = TRUE, row.names = 1, sep = "\t"))
 	clusters <- rownames(dat)	
 	rownames(dat) <- NULL
 	
@@ -86,7 +87,7 @@ for (m in methods) {
 
     padj <- data.frame(corset = allres$padj, row.names = clusters)
 	format(padj, scientific=FALSE)
-	write.table(padj, file = "corsetpadj.txt", sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
+	write.table(padj, file = file.path(dedir, paste0(m, "padj.txt")), sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
     message("Loading corset data")
   }
   first = FALSE

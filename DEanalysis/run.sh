@@ -6,11 +6,15 @@ read clustfile
 
 #/mnt/scratch3/avi/clustering/logFoldChange/sailfish/full/graph.clust.filt
 
-python GetContig2Clust.py $clustfile /home/laraib/clust/DE_analysis/contig2clust.tsv
+adir=$(dirname ${clustfile})
 
-Rscript GetDEGenes.R truth
-Rscript GetDEGenes.R sailfish
-Rscript GetDEGenes.R corset
+python GetContig2Clust.py $clustfile ${adir}/rapclust_clusters.flat
 
-python DEcomp.py --method sailfish
-python DEcomp.py --method corset
+cfile=rapclust_clusters.flat
+
+#Rscript GetDEGenes.R truth $adir contig2cuffGene.tsv
+Rscript GetDEGenes.R sailfish $adir $cfile
+#Rscript GetDEGenes.R corset $adir corset-counts.txt
+
+python DEcomp.py --method sailfish --adir $adir
+python DEcomp.py --method corset --adir $adir

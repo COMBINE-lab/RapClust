@@ -8,6 +8,18 @@ import os
 import time
 import click
 
+def loadResults2(contigToGene, fname):
+    clust2genes = {}
+    with open(fname, 'r') as f:
+        for l in f:
+            toks = l.rstrip().split()
+            contig, clust = toks[0], toks[1]
+            if clust not in clust2genes:
+                clust2genes[clust] = set([])
+            if contig in contigToGene:
+                clust2genes[clust].add(contigToGene[contig])
+    return clust2genes
+
 def loadResults(contigToGene, fname):
     clust2gene = {}
     with open(fname, 'r') as f:
@@ -58,21 +70,27 @@ def loadResults(contigToGene, fname):
 
 @click.command()
 @click.option("--method", default="sailfish", help="method to generate results for")
-def genTPRate(method):
-	
-    path = "/home/laraib/clust/DE_analysis/"
+@click.option("--adir", help="analysis directory containing the clustering files and adjusted p-value files")
+def genTPRate(method, adir):
+    import os
+
+    sigCutoff = 0.05
+    path = adir
     print ("Data is in dir: " + path)
-    
-    contigToGeneFile = path + "contig2cuffGene.txt"
+
+    usingSets = True
+    contigToGeneFile = os.path.sep.join([path, "contig2cuffGene.tsv"])
     contigToGene = pd.read_table(contigToGeneFile, names=["contigs", "cuffgene"])
     contigToGene.set_index("contigs", inplace=True)
+    contigToGene = contigToGene.to_dict()['cuffgene']
 
     if method == "sailfish":
-        clust2gene = loadResults(contigToGene, path+"contig2clust.tsv")
+        clust2gene = loadResults2(contigToGene, os.path.sep.join([path, "rapclust_clusters.flat"]))
     elif method == "corset":
-        clust2gene = loadResults(contigToGene, "/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-clusters.txt")
+        clust2gene = loadResults2(contigToGene, os.path.sep.join([path, "corset-clusters.txt"]))
 
-    with open((path + method + "padj.txt"), 'r') as f:
+    #print(clust2gene.keys())
+    with open(os.path.sep.join([path,  method + "padj.txt"]), 'r') as f:
         data = pd.read_table(f, names = ['clust', 'pval'])
         clust2pval = data.set_index("clust").to_dict()['pval']
 
@@ -83,10 +101,10 @@ def genTPRate(method):
     # true txp <-> gene mapping
     ##
     sigGenes = set([])
-    with open((path + "truthpadj.txt"), 'r') as f:
+    with open(os.path.sep.join([path, "truthpadj.txt"]), 'r') as f:
         for l in f:
             toks = l.split('\t')
-            if float(toks[1]) < 0.05:
+            if float(toks[1]) <= sigCutoff:
                 sigGenes.add(toks[0])
 
     print ("Count of true positives for " + method)
@@ -94,14 +112,26 @@ def genTPRate(method):
     tp = set([]) # use a set so we don't count duplicates
     fp = set([])
     for i in range(len(sortedclusts)):
-        if (i%5000 == 0):
+        if (i%500 == 0):
             print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
-        sigclustgene = clust2gene[sortedclusts[i]]     
-        if sigclustgene in sigGenes:
-            tp.add(sigclustgene)
-        else:
-            fp.add(sigclustgene)
-        if (clust2pval.get(sortedclusts[i]) > 0.05):
+        #sigclustgene = clust2gene[sortedclusts[i]]
+        #if sigclustgene in sigGenes:
+        #    tp.add(sigclustgene)
+        #else:
+        #   fp.add(sigclustgene)
+        #sigClustGenes = clust2gene[sortedclusts[i]]
+        if usingSets:
+            sigClustGenes = clust2gene[sortedclusts[i]]
+            sigSet = sigGenes.intersection(sigClustGenes)
+            if len(sigSet) > 0:
+                if (len(sigSet.intersection(fp)) > 0):
+                    print("contains some things already FP")
+                tp |= (sigSet - fp)
+            else:
+                if (len(sigClustGenes.intersection(tp)) > 0):
+                    print("contains some things already TP")
+                fp |= (sigClustGenes - tp)
+        if (clust2pval.get(sortedclusts[i]) > sigCutoff):
             break
     print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
     print ("precision " + str(float(len(tp))/(len(tp)+len(fp))))
