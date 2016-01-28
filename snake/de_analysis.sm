@@ -1,0 +1,98 @@
+rule foldChange:
+    input:
+        netfile = "/mnt/scratch3/avi/clustering/logFoldChange/sailfish/full/graph.net",
+        foldChange = "/home/laraib/clust/DE_analysis/sailfishlog2FoldChange.txt"
+    run:
+        import pandas as pd
+        with open(input.foldChange) as f:
+            contigFC = pd.read_table(f, header=None).set_index(0).to_dict()[1]
+        ofile =  open(input.netfile+".mod", 'w')
+        count = 0 
+        with open(input.netfile) as f:
+            net = pd.read_table(f, header=None)
+            for i in range(len(net)):
+                count += 1
+                print ("\r {} Done".format(count), end = "")
+                try:
+                    c1 = contigFC[net[0][i]]
+                except:
+                    c1 = 0
+                try:
+                    c2 = contigFC[net[1][i]]
+                except:
+                    c2 = 0
+                ofile.write(str(net[0][i]) + "\t" + str(net[1][i]) + "\t" + str(max(c1, c2) - min(c1, c2)) + "\t" + str(net[2][i])  + "\n")
+
+rule hypothesisTesting:
+    input:
+        netfile = "/mnt/scratch3/avi/clustering/logFoldChange/sailfish/full/graph.net",
+        samplesPath = "/mnt/scratch3/avi/clustering/logFoldChange/sailfish/"
+    run:
+        import pandas as pd
+        import collections
+        import math
+
+        conditions = ['A', 'B']
+        samples = ['1', '2', '3']
+
+        sailfish = {}
+        for cond in conditions:
+            sailfish[cond] = collections.defaultdict(float)
+            for sample in samples:
+                fileDir = cond+sample
+                filePath = input.samplesPath+fileDir+"/quant.sf"
+
+                with open(filePath) as f:
+                    data = pd.read_table(f, header=0)
+                    for i in range(len(data)):
+                        name = data['Name'][i]
+                        numreads = data['NumReads'][i]
+                        sailfish[cond][name] += numreads
+            for name in sailfish[cond]:
+                sailfish[cond][name] += 1
+
+        print ("Done Reading")
+        
+        count = 0
+        with open(input.netfile) as f, open(input.netfile + '.mod', 'w') as ofile:
+            data = pd.read_table(f, header=None)
+            for i in range(len(data)):
+                count += 1
+                print ("\r{} done".format(count), end= "")
+
+                #Alternative hypo
+                x = data[0][i]
+                y = data[1][i]
+
+                non_null=0
+                x_all=0
+                y_all=0
+                for cond in conditions:
+                    y_g = sailfish[cond][y]
+                    x_g = sailfish[cond][x]
+                    r = y_g / x_g
+                    non_null += (y_g * math.log(r*x_g)) - (r*x_g)
+                    non_null += (x_g * math.log(x_g)) - x_g
+                    x_all += x_g
+                    y_all += y_g
+
+                #null hypothesis
+                null = 0
+                r_all = y_all / x_all
+                for cond in conditions:
+                    y_g = sailfish[cond][y]
+                    x_g = sailfish[cond][x]
+                    mean_x = (x_g + y_g) / (1+r_all)
+                    null += (y_g * math.log(r_all * mean_x)) - (r_all * mean_x)
+                    null += (x_g * math.log(mean_x)) - mean_x
+
+                D = 2*(non_null-null)
+
+                if D <= 20:
+                    ofile.write(str(x) + "\t" + str(y) + "\t" + str(data[2][i]) + "\n")
+
+
+
+
+
+
