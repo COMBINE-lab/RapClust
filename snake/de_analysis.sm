@@ -48,6 +48,7 @@ rule hypothesisTesting:
                         name = data['Name'][i]
                         numreads = data['NumReads'][i]
                         sailfish[cond][name] += numreads
+            # To avoid divide by 0 error
             for name in sailfish[cond]:
                 sailfish[cond][name] += 1
 
