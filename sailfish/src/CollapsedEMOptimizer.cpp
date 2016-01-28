@@ -938,7 +938,7 @@ void CollapsedEMOptimizer::clusterTranscripts(ReadExperiment& readExp, std::stri
     ////////////////////////////////////////////////////////////////
     // creating .strand file
     std::ofstream fs;
-    const std::string strandCountFile = outfile+".strand" ;
+    const std::string strandCountFile = outfile+"/contigs.strand" ;
     fs.open(strandCountFile);
 
     //for (size_t i =0; i<transcripts.size(); i++){

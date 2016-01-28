@@ -110,7 +110,8 @@ void processReadsQuasi(paired_parser* parser,
                FragLengthCountMap& flMap,
                std::atomic<int32_t>& remainingFLOps,
 	           std::mutex& iomutex,
-               std::fstream &binDump) {
+               std::fstream &binDump,
+               uint64_t &count) {
 
   uint32_t maxFragLen = sfOpts.maxFragLen;
   uint64_t prevObservedFrags{1};
@@ -362,11 +363,16 @@ void processReadsQuasi(paired_parser* parser,
                             //binDump.write( reinterpret_cast<const char *> (&orientation), orientation.size());
                             //binDump.write("\0", sizeof(char));
 
-                            binDump.write(txp.RefName.c_str(), txp.RefName.size());
-                            binDump.write("\t", sizeof(char));
-                            binDump.write( orientation.c_str(), orientation.size());
-                            binDump.write("\t", sizeof(char));
+                            //binDump.write(txp.RefName.c_str(), txp.RefName.size());
+                            //binDump.write("\t", sizeof(char));
+                            //binDump.write( orientation.c_str(), orientation.size());
+                            //binDump.write("\t", sizeof(char));
 
+                        }
+                        else{
+                            iomutex.lock();
+                            count += 1;
+                            iomutex.unlock();
                         }
                         if (!haveCompat and !enforceCompat) {
                             txpIDsAll.push_back(transcriptID);
@@ -406,13 +412,19 @@ void processReadsQuasi(paired_parser* parser,
                         //binDump.write( reinterpret_cast<const char *> (&orientation), orientation.size());
                         //binDump.write("\0", sizeof(char));
 
-                        binDump.write(txp.RefName.c_str(), txp.RefName.size());
-                        binDump.write("\t", sizeof(char));
-                        binDump.write( orientation.c_str(), orientation.size());
-                        binDump.write("\t", sizeof(char));
+                        //binDump.write(txp.RefName.c_str(), txp.RefName.size());
+                        //binDump.write("\t", sizeof(char));
+                        //binDump.write( orientation.c_str(), orientation.size());
+                        //binDump.write("\t", sizeof(char));
 
 
                     }
+                    else{
+                        iomutex.lock();
+                        count += 1;
+                        iomutex.unlock();
+                    }
+
                     if (!haveCompat and !enforceCompat) {
                         txpIDsAll.push_back(transcriptID);
                         auxProbsAll.push_back(1.0);
@@ -922,7 +934,9 @@ void quasiMapReads(
     FragLengthCountMap flMap(sfOpts.maxFragLen, 0);
 
 ///////////////////////////////////////////////////////////////
-    std::fstream binDump("strand.dump", std::ios::binary | std::ios::out );
+    boost::filesystem::path strandDir = sfOpts.outputDirectory / "strand.dump";
+    std::fstream binDump(strandDir.string() , std::ios::binary | std::ios::out );
+    uint64_t count;
 ///////////////////////////////////////////////////////////////
 
     // If the read library is paired-end
@@ -975,7 +989,8 @@ void quasiMapReads(
                             flMap,
                             remainingFLOps,
                             iomutex,
-                            binDump);
+                            binDump,
+                            count);
                 };
                 threads.emplace_back(threadFun);
             } else {
@@ -989,7 +1004,8 @@ void quasiMapReads(
                             flMap,
                             remainingFLOps,
                             iomutex,
-                            binDump);
+                            binDump,
+                            count);
                 };
             threads.emplace_back(threadFun);
             }
@@ -1104,6 +1120,7 @@ void quasiMapReads(
         }
     } // ------ END Single-end --------
 //////////////////////////////////////
+    std::cout<<count<<" count is";
     binDump.close();
 /////////////////////////////////////
 
