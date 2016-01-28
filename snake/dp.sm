@@ -1,6 +1,6 @@
 #command snakemake generate_cluster --config ifile=quant_human.clust ofile=Trinity.fasta
 #generate clusters from sailfish .quant file
-rule generate_cluster:
+rule generate_clusters:
     input:
         ifile = clustFile,
         ref = contigs
@@ -214,7 +214,7 @@ rule run_blast_allGenes:
             count += 1
             print("\rDone with {}".format(count))
 
-rule get_similarity:
+rule get_similarity_all:
     input:
         tsv = "output/all-vs-all1.tsv"
     run:
