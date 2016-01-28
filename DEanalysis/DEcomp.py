@@ -8,32 +8,7 @@ import os
 import time
 import click
 
-def loadSFResults(contigToGene, fname):
-    clust2gene = {}
-    clustID = 1
-    with open(fname, 'r') as f:
-        for line in f:
-            nomap = 0
-            geneIDs = []
-            contigIDs = line.split('\t')
-            for ID in contigIDs:
-                ID = ID.strip('\n')
-                try:
-                    geneIDs.append((contigToGene.loc[ID, 'cuffgene']))
-                except KeyError:
-                    nomap+=1
-            if (nomap == len(contigIDs)):
-                clust2gene[("cluster"+str(clustID))] = 'None'
-            else:
-                d = defaultdict(int)
-                for i in geneIDs:
-                    d[i] += 1
-                result = max(d.iteritems(), key=lambda x: x[1])
-                clust2gene[("cluster"+str(clustID))] = result[0]
-            clustID += 1
-    return clust2gene
-
-def loadCorsetResults(contigToGene, fname):
+def loadResults(contigToGene, fname):
     clust2gene = {}
     with open(fname, 'r') as f:
         line = f.readline()
@@ -84,17 +59,18 @@ def loadCorsetResults(contigToGene, fname):
 @click.command()
 @click.option("--method", default="sailfish", help="method to generate results for")
 def genTPRate(method):
-
-    contigToGeneFile = "de_data/mappingData_avi/contig2cuffGene.txt"
+	
+    path = "/home/laraib/clust/DE_analysis/"
+    print ("Data is in dir: " + path)
+    
+    contigToGeneFile = path + "contig2cuffGene.txt"
     contigToGene = pd.read_table(contigToGeneFile, names=["contigs", "cuffgene"])
     contigToGene.set_index("contigs", inplace=True)
-    path = "de_data/DE_analysis/"
-    print ("Data is in dir: " + path)
 
     if method == "sailfish":
-        clust2gene = loadSFResults(contigToGene, "/mnt/scratch3/avi/clustering/geneModel/src/quant_human.clust")
+        clust2gene = loadResults(contigToGene, path+"contig2clust.tsv")
     elif method == "corset":
-        clust2gene = loadCorsetResults(contigToGene, "/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-clusters.txt")
+        clust2gene = loadResults(contigToGene, "/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-clusters.txt")
 
     with open((path + method + "padj.txt"), 'r') as f:
         data = pd.read_table(f, names = ['clust', 'pval'])
@@ -119,14 +95,16 @@ def genTPRate(method):
     fp = set([])
     for i in range(len(sortedclusts)):
         if (i%5000 == 0):
-            print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)))
-        sigclustgene = clust2gene[sortedclusts[i]]
+            print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
+        sigclustgene = clust2gene[sortedclusts[i]]     
         if sigclustgene in sigGenes:
             tp.add(sigclustgene)
         else:
             fp.add(sigclustgene)
-
-    print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)))
-
+        if (clust2pval.get(sortedclusts[i]) > 0.05):
+            break
+    print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
+    print ("precision " + str(float(len(tp))/(len(tp)+len(fp))))
+    print ("recall " + str(float(len(tp))/len(sigGenes)))
 if __name__ == "__main__":
     genTPRate()
