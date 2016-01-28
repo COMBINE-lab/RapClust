@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly=TRUE)
 methods <- lapply(args, tolower)
-dedir <- file.path("de_data")
+dedir <- file.path("/home/laraib/clust/DE_analysis/")
 
 library(iCOBRA)
 suppressMessages(library(DESeq2))
@@ -15,18 +15,17 @@ getTXImport <- function(methodName) {
 
     # Process depending on the method
     if (methodName == "sailfish") {
-	    # Gene <-> transcript mapping
-    	tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2clust.tsv"), sep="\t")
+	# Clust <-> contig mapping
+        tx2gene <- read.csv(file.path(dedir, "contig2clust.tsv"), sep="\t")
     } else if (methodName == "truth") {
-        #truth file
-        tx2gene <- read.csv(file.path(dedir, "mappingData_avi/contig2cuffGene.txt"), sep="\t") 
+       tx2gene <- read.csv(file.path(dedir, "contig2cuffGene.txt"), sep="\t") #truth file
     }
     message("import sailfish results")
     files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
     message(files)
     names(files) <- paste0("sample", dir(file.path(quantDir, "sailfish")))
     message(names(files))
-    txi <- tximport(files, type="sailfish", countsFromAbundance = "lengthScaledTPM", tx2gene = tx2gene, reader = read_tsv)
+    txi <- tximport(files, type="sailfish", countsFromAbundance = "scaledTPM", tx2gene = tx2gene, reader = read_tsv)
 
     return(txi)
 } 
@@ -71,8 +70,7 @@ for (m in methods) {
 	options("scipen"=100, "digits"=4)
     padj <- data.frame(sailfish = allres[[m]]$padj, row.names = rownames(allres[[m]]))
 	format(padj, scientific=FALSE)
-	write.table(padj, file = file.path(dedir, paste0("DE_analysis/",m,"padj.txt")), sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
-	#write.table(padj, file = "truthpadj.txt", sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE) #generate ground truth
+	write.table(padj, file = file.path(dedir, paste0(m,"padj.txt")), sep = "\t", row.names = rownames(allres[[m]]), quote = FALSE, col.names = FALSE)
   } else if (m == "corset") {
 	dat <- data.matrix(read.csv("/mnt/scratch3/avi/clustering/data/corsetData/Human-Trinity/corset-counts.txt", header = TRUE, row.names = 1, sep = "\t"))
 	clusters <- rownames(dat)	
@@ -88,7 +86,7 @@ for (m in methods) {
 
     padj <- data.frame(corset = allres$padj, row.names = clusters)
 	format(padj, scientific=FALSE)
-	write.table(padj, file = file.path(dedir, "corsetpadj.txt"), sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
+	write.table(padj, file = "corsetpadj.txt", sep = "\t", row.names = clusters, quote = FALSE, col.names = FALSE)
     message("Loading corset data")
   }
   first = FALSE
