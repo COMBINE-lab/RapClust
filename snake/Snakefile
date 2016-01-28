@@ -33,9 +33,9 @@ one_msa = "./msaAll/49.fa.msa"
 ##################################################
 
 
+include: "de_analysis.sm"
 include: "check_recall.sm"
 include: "de-bruijn.sm"
 include: "dp.sm"
 include: "get_data_SRA.sm"
-include: "de_analysis.sm"
 include: "seperate_strand.sm"

@@ -89,7 +89,7 @@ rule hypothesisTesting:
 
                 D = 2*(non_null-null)
 
-                if D <= 20:
+                if D <= float(config["dcut"]):
                     ofile.write(str(x) + "\t" + str(y) + "\t" + str(data[2][i]) + "\n")
 
 
