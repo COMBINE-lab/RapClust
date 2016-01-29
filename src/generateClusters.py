@@ -41,7 +41,7 @@ from subprocess import call
 def makeCluster(netfile,outfile):
     df = pd.read_csv(netfile,delimiter='\t', names = ['u','v','w'],header=None)
     df['w'] = df['w'].fillna(0)
-    a = df[df['w'] > 0.0]['w'].values
+    a = df[df['w'] < 1.1]['w'].values
     print(a)
     v,be = np.histogram(a,bins=100,density=True)
     (ind,maxx) = rdp(zip(range(0,len(v)),np.cumsum(v)),0.0)
