@@ -39,7 +39,8 @@ def accuracyExpressed(groundTruth_clust, tr_clust):
 
 def accuracyExpressedFast(groundTruth_clust, groundTruth_clust_inv,
                           tr_clust, tr_clust_inv):
-    num = len(set(tr_clust.keys()) & set(groundTruth_clust.keys()))
+    #num = len(set(tr_clust.keys()) & set(groundTruth_clust.keys()))
+    num = len(set(groundTruth_clust.keys()))
     tp, fp, tn, fn = 0, 0, 0, 0
     for clustName, clustMems in tr_clust_inv.iteritems():
         for tr_1, tr_2 in itertools.combinations(clustMems,2):
@@ -139,8 +140,12 @@ def readCommClust(fn):
             tr_clust_inv[v] = [k]
     return tr_clust, tr_clust_inv
 
-def measurePrecRecall(qsf,sp):
-    tr_clust, tr_clust_inv = readMCLClust(qsf)
+def measurePrecRecall(qsf,sp, ctype):
+    if ctype == "mcl":
+        tr_clust, tr_clust_inv = readMCLClust(qsf)
+    elif ctype == "corset":
+        tr_clust, tr_clust_inv = readCorset(qsf)
+
     if(sp == 'human'):
         ft = trinity_human
     else:
@@ -156,8 +161,9 @@ def main():
     parser = argparse.ArgumentParser(description="Give the SRR number")
     parser.add_argument('--clustfile',type = str, help="graph file")
     parser.add_argument('--sp',type = str, help="human or yeast")
+    parser.add_argument('--ctype',type = str, default="mcl", help="human or yeast")
     args = parser.parse_args()
-    measurePrecRecall(args.clustfile,args.sp)
+    measurePrecRecall(args.clustfile,args.sp, args.ctype)
 
 
 if __name__ == "__main__":

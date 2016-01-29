@@ -4,7 +4,8 @@ import click
 @click.option("--sampdirs", help="equivalence class file")
 @click.option("--netfile", help="output net file")
 @click.option("--cutoff", default=10, help="filter contigs with fewer than this many reads")
-def buildNetFromEq(sampdirs, netfile, cutoff):
+@click.option("--writecomponents/--no-writecomponents", default=False, help="write out connected components as clusters")
+def buildNetFromEq(sampdirs, netfile, cutoff, writecomponents):
     import itertools
     import pandas as pd
     import numpy as np
@@ -44,7 +45,7 @@ def buildNetFromEq(sampdirs, netfile, cutoff):
             numSamp += 1
             numTran = int(ifile.readline().rstrip())
             numEq = int(ifile.readline().rstrip())
-            print("# tran = {}\n# eq = {}".format(numTran, numEq))
+            print("file: {}; # tran = {}; # eq = {}".format(eqfile, numTran, numEq))
             if firstSamp:
                 for i in xrange(numTran):
                     tnames.append(ifile.readline().rstrip())
@@ -104,10 +105,6 @@ def buildNetFromEq(sampdirs, netfile, cutoff):
     for e in edgesToRemove:
         del weightDict[e]
 
-    print("max weight was {}; rescaling\n".format(maxWeight))
-    #for k,v in weightDict.iteritems():
-    #    weightDict[k] /= maxWeight
-
     tnamesFilt = []
     relabel = {}
     for i in xrange(len(estCount)):
@@ -116,12 +113,26 @@ def buildNetFromEq(sampdirs, netfile, cutoff):
             tnamesFilt.append(tnames[i])
             weightDict[(i, i)] = 1.1
 
+    import networkx as nx
+    G = nx.Graph() if writecomponents else None
     with open(netfile, 'w') as ofile:
-        writeEdgeList(weightDict, tnames, ofile)
+        writeEdgeList(weightDict, tnames, ofile, G)
 
-def writeEdgeList(weightDict, tnames, ofile):
+    if G is not None:
+        clustFile = netfile.split('.net')[0] + '.clust'
+        print("Writing connected components as clusters to {}".format(clustFile))
+        with open(clustFile, 'w') as ofile:
+            cc = nx.connected_component_subgraphs(G)
+            for c in cc:
+                ofile.write('{}\n'.format('\t'.join(c.nodes())))
+
+def writeEdgeList(weightDict, tnames, ofile, G):
+    useGraph = G is not None
     for k,v in weightDict.iteritems():
         ofile.write("{}\t{}\t{}\n".format(tnames[k[0]], tnames[k[1]], v))
+        if useGraph:
+            G.add_edge(tnames[k[0]], tnames[k[1]])
+
 
 def writePajek(weightDict, tnames, relabel, ofile):
     with open(netfile, 'w') as ofile:

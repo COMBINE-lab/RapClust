@@ -71,7 +71,8 @@ def loadResults(contigToGene, fname):
 @click.command()
 @click.option("--method", default="sailfish", help="method to generate results for")
 @click.option("--adir", help="analysis directory containing the clustering files and adjusted p-value files")
-def genTPRate(method, adir):
+@click.option("--odir", default='.', help="directory where results will be written")
+def genTPRate(method, adir, odir):
     import os
 
     sigCutoff = 0.05
@@ -111,30 +112,45 @@ def genTPRate(method, adir):
     print ("Top ranked clusters" + "\t" + "Uniq True positives" + '\t' + "Uniq False positives")
     tp = set([]) # use a set so we don't count duplicates
     fp = set([])
+    ofile = open(os.path.sep.join([odir, "{}_de_recovery.scored-label".format(method)]), 'w')
     for i in range(len(sortedclusts)):
         if (i%500 == 0):
             print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
-        #sigclustgene = clust2gene[sortedclusts[i]]
-        #if sigclustgene in sigGenes:
-        #    tp.add(sigclustgene)
-        #else:
-        #   fp.add(sigclustgene)
-        #sigClustGenes = clust2gene[sortedclusts[i]]
+        truePos = False
+        falsePos = False
         if usingSets:
             sigClustGenes = clust2gene[sortedclusts[i]]
             sigSet = sigGenes.intersection(sigClustGenes)
             if len(sigSet) > 0:
                 if (len(sigSet.intersection(fp)) > 0):
                     print("contains some things already FP")
+                numPrev = len(tp)
                 tp |= (sigSet - fp)
+                truePos = len(tp) > numPrev
             else:
                 if (len(sigClustGenes.intersection(tp)) > 0):
                     print("contains some things already TP")
+                numPrev = len(fp)
                 fp |= (sigClustGenes - tp)
+                falsePos = len(fp) > numPrev
+        else: # Not using sets
+            sigclustgene = clust2gene[sortedclusts[i]]
+            if sigclustgene in sigGenes:
+                tp.add(sigclustgene)
+            else:
+               fp.add(sigclustgene)
+            sigClustGenes = clust2gene[sortedclusts[i]]
+
+        # Only write output if the # of true positives or false positives
+        # changed.  Unlabeled points are ignored
+        if truePos or falsePos: 
+            ofile.write("{}\t{}\n".format(-clust2pval[sortedclusts[i]], 1 if truePos else 0))
         if (clust2pval.get(sortedclusts[i]) > sigCutoff):
             break
+    ofile.close()
     print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
     print ("precision " + str(float(len(tp))/(len(tp)+len(fp))))
     print ("recall " + str(float(len(tp))/len(sigGenes)))
+
 if __name__ == "__main__":
     genTPRate()
