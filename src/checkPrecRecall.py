@@ -2,7 +2,7 @@ import itertools
 #import hirak
 trinity_human = "/mnt/scratch3/avi/clustering/data/human/trinity/truth/contigs2genes.disambiguous.txt"
 trinity_yeast = "/mnt/scratch3/avi/clustering/data/yeast/trinity/truth/contigs2genes.disambiguous.txt"
-
+trinity_chicken = "/mnt/scratch3/avi/clustering/data/chicken/trinity/truth/contigs2genes.disambiguous.txt"
 class Classification:
     TruePos, FalsePos, TrueNeg, FalseNeg = range(4)
 
@@ -148,8 +148,10 @@ def measurePrecRecall(qsf,sp, ctype):
 
     if(sp == 'human'):
         ft = trinity_human
-    else:
+    elif (sp == 'yeast'):
         ft = trinity_yeast
+    else:
+        ft = trinity_chicken
     groundTruth_clust, ground_truth_clust_inv = readTrueLabels(ft)
     tp, fp, tn, fn = accuracyExpressedFast(groundTruth_clust, ground_truth_clust_inv, tr_clust, tr_clust_inv)
     print("tp : {}, fp : {}, tn : {}, fn : {}".format(tp, fp, tn, fn))
@@ -160,7 +162,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(description="Give the SRR number")
     parser.add_argument('--clustfile',type = str, help="graph file")
-    parser.add_argument('--sp',type = str, help="human or yeast")
+    parser.add_argument('--sp',type = str, help="human or yeast or chicken")
     parser.add_argument('--ctype',type = str, default="mcl", help="human or yeast")
     args = parser.parse_args()
     measurePrecRecall(args.clustfile,args.sp, args.ctype)
