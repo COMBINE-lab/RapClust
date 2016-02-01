@@ -1,7 +1,7 @@
 import itertools
 #import hirak
-trinity_human = "/mnt/scratch3/avi/clustering/human/trinity/truth/contigs2genes.disambiguous.txt"
-trinity_yeast = "/mnt/scratch3/avi/clustering/yeast/trinity/truth/contigs2genes.disambiguous.txt"
+trinity_human = "/mnt/scratch3/avi/clustering/data/human/trinity/truth/contigs2genes.disambiguous.txt"
+trinity_yeast = "/mnt/scratch3/avi/clustering/data/yeast/trinity/truth/contigs2genes.disambiguous.txt"
 
 class Classification:
     TruePos, FalsePos, TrueNeg, FalseNeg = range(4)
