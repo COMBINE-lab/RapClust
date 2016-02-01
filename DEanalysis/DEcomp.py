@@ -102,11 +102,22 @@ def genTPRate(method, adir, odir):
     # true txp <-> gene mapping
     ##
     sigGenes = set([])
+    nonSigGenes = set([])
     with open(os.path.sep.join([path, "truthpadj.txt"]), 'r') as f:
         for l in f:
             toks = l.split('\t')
             if float(toks[1]) <= sigCutoff:
                 sigGenes.add(toks[0])
+            else:
+                nonSigGenes.add(toks[0])
+
+    # DESeq2 sometimes outputs p-values of NA,
+    # but we drop these from the truthpadj.txt file.
+    # Here, we consider any genes missing from truthadj.txt
+    # as *not* differentially expressed.
+    for k, v in contigToGene.iteritems():
+        if v not in sigGenes:
+            nonSigGenes.add(v)
 
     print ("Count of true positives for " + method)
     print ("Top ranked clusters" + "\t" + "Uniq True positives" + '\t' + "Uniq False positives")
@@ -118,33 +129,42 @@ def genTPRate(method, adir, odir):
             print (str(i) + '\t' + str(len(tp)) + '\t' + str(len(fp)) + '\t' + str(clust2pval.get(sortedclusts[i])))
         truePos = False
         falsePos = False
+        newTP = set([])
+        newFP = set([])
         if usingSets:
             sigClustGenes = clust2gene[sortedclusts[i]]
             sigSet = sigGenes.intersection(sigClustGenes)
+            nonSigSet = nonSigGenes.intersection(sigClustGenes)
+            assert(sigSet.union(nonSigSet) == sigClustGenes)
             if len(sigSet) > 0:
                 if (len(sigSet.intersection(fp)) > 0):
                     print("contains some things already FP")
-                numPrev = len(tp)
-                tp |= (sigSet - fp)
-                truePos = len(tp) > numPrev
-            else:
-                if (len(sigClustGenes.intersection(tp)) > 0):
+                newTP = (sigSet - fp) - tp
+                tp |= newTP
+                truePos = len(newTP) > 0
+            if len(nonSigSet) > 0:
+                if (len(nonSigSet.intersection(tp)) > 0):
                     print("contains some things already TP")
-                numPrev = len(fp)
-                fp |= (sigClustGenes - tp)
-                falsePos = len(fp) > numPrev
+                newFP = (nonSigSet - tp) - fp
+                fp |= newFP
+                falsePos = len(newFP) > 0
         else: # Not using sets
             sigclustgene = clust2gene[sortedclusts[i]]
             if sigclustgene in sigGenes:
-                tp.add(sigclustgene)
+               tp.add(sigclustgene)
             else:
                fp.add(sigclustgene)
             sigClustGenes = clust2gene[sortedclusts[i]]
 
         # Only write output if the # of true positives or false positives
         # changed.  Unlabeled points are ignored
-        if truePos or falsePos: 
-            ofile.write("{}\t{}\n".format(-clust2pval[sortedclusts[i]], 1 if truePos else 0))
+        if truePos or falsePos:
+            # Every true positive is an example labled with 1
+            for x in newTP:
+                ofile.write("{}\t{}\n".format(-clust2pval[sortedclusts[i]], 1))
+            # Every false positive is an example labled with 0
+            for x in newFP:
+                ofile.write("{}\t{}\n".format(-clust2pval[sortedclusts[i]], 0))
         if (clust2pval.get(sortedclusts[i]) > sigCutoff):
             break
     ofile.close()
