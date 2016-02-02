@@ -101,7 +101,8 @@ def filterGraph(sampdir, netfile, ofile):
         readEqClass(filePath, eqClasses[cond])
 
     ambigCounts = {cond : getCountsFromEquiv(eqClasses[cond]) for cond in conditions}
-
+    
+    sailfish = {}
     for cond in conditions:
         sailfish[cond] = ambigCounts[cond]
 

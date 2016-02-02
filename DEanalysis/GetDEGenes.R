@@ -2,6 +2,7 @@ args <- commandArgs(trailingOnly=TRUE)
 methods <- lapply(args[1], tolower)
 dedir <- args[2]
 clustFile <- args[3]
+species <- args[4]
 
 library(iCOBRA)
 suppressMessages(library(DESeq2))
@@ -9,7 +10,7 @@ suppressMessages(library(tximport))
 suppressMessages(library(data.table))
 suppressMessages(library(readr))
 
-getTXImport <- function(methodName) {
+getTXImport <- function(methodName, species) {
     # Where the quantification results are
     quantDir <- normalizePath(file.path(dedir, "quant"))
     message("quantDir is ", quantDir) 
@@ -22,7 +23,7 @@ getTXImport <- function(methodName) {
     #   tx2gene <- read.csv(file.path(dedir, "contig2cuffGene.txt"), sep="\t") #truth file
     #}
     message("import sailfish results")
-    files <- file.path(quantDir, "sailfish", dir(file.path(quantDir, "sailfish")), "quant.sf")
+    files <- file.path(quantDir, species, dir(file.path(quantDir, species)), "quant.sf")
     message(files)
     names(files) <- paste0("sample", c("A1", "A2", "A3", "B1", "B2", "B3")) #paste0("sample", dir(file.path(quantDir, "sailfish")))
     message(names(files))
@@ -62,7 +63,7 @@ first = TRUE
 for (m in methods) {
 
   if ((m == "sailfish") | (m == "truth")) {
-	txis <- lapply(methods, getTXImport)
+	txis <- lapply(methods, getTXImport, species)
 	names(txis) <- methods
 
 	allres <- lapply(txis, getDEGenesFromTxi, meta = meta, cond_name = "condition", level1 = "A", level2 = "B", sample_name = "sample")
