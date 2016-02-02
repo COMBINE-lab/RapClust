@@ -43,7 +43,7 @@ def readEqClass(eqfile, eqCollection):
             eqCollection.add(tids, count)
 
 def getCountsFromEquiv(eqCollection):
-    countDict = {} 
+    countDict = {}
     tn = eqCollection.tnames
     for tids, count in eqCollection.eqClasses.iteritems():
         for t in tids:
@@ -65,11 +65,18 @@ def getCountsFromEquiv(eqCollection):
 @click.option("--ofile", help="output network file")
 def filterGraph(sampdir, netfile, ofile):
     samplesPath = sampdir
-    conditions = ['A', 'B']
-    samples = ['1', '2', '3']
+    condSamplePairs = []
+    for p in os.listdir(samplesPath):
+        d = os.path.basename(os.path.normpath(p))
+        # we assume that the sample directories 
+        # have names of the form {condition}{replicate}
+        # where condition is a single character.
+        condSamplePairs.append((d[0], d[1:]))
 
-
-    sailfish = {}
+    # Get just the set of condition names
+    conditions = sorted(list(set(zip(*condSamplePairs)[0])))
+    print("conditions = {}".format(conditions))
+    
     #for cond in conditions:
     #    sailfish[cond] = collections.defaultdict(float)
     #    for sample in samples:
@@ -87,20 +94,17 @@ def filterGraph(sampdir, netfile, ofile):
     #        sailfish[cond][name] += 1
 
     eqClasses = {}
-    for cond in conditions:
-        eqClasses[cond] = EquivCollection() 
-        for sample in samples:
-            fileDir = cond+sample
-            filePath = os.path.sep.join([samplesPath, fileDir, "aux", "eq_classes.txt"])
-            readEqClass(filePath, eqClasses[cond])
+    for cond,samp in condSamplePairs:
+        if cond not in eqClasses:
+            eqClasses[cond] = EquivCollection()
+        filePath = os.path.sep.join([samplesPath, "{}{}".format(cond, samp), "aux", "eq_classes.txt"])
+        readEqClass(filePath, eqClasses[cond])
 
-    ambigCounts = {'A' : {}, 'B' : {}}
-    ambigCounts['A'] = getCountsFromEquiv(eqClasses['A'])
-    ambigCounts['B'] = getCountsFromEquiv(eqClasses['B'])
-    
-    sailfish['A'] = ambigCounts['A']
-    sailfish['B'] = ambigCounts['B']
-    
+    ambigCounts = {cond : getCountsFromEquiv(eqClasses[cond]) for cond in conditions}
+
+    for cond in conditions:
+        sailfish[cond] = ambigCounts[cond]
+
     print ("Done Reading")
     count = 0
     numTrimmed = 0
