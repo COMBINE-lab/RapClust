@@ -63,5 +63,26 @@ def processQuant(config):
     logging.info("Clustering multiple alignment graph")
     call(["mcl", filtNetFile, "--abc", "-o", clustFile])
 
+    flatClustFile = os.path.sep.join([outdir, "mag.flat.clust"])
+    eqnet.flattenClusters(clustFile, flatClustFile)
+
+    import numpy as np
+    import json
+    summaryFile = os.path.sep.join([outdir, "stats.json"])
+    sizes = []
+    with open(clustFile) as ifile:
+        for l in ifile:
+            toks = l.rstrip().split()
+            sizes.append(len(toks))
+    sizes = np.array(sizes)
+    stats = {}
+    stats['min clust size'] = sizes.min()
+    stats['max clust size'] = sizes.max()
+    stats['mean clust size'] = sizes.mean()
+    stats['num clusts'] = len(sizes)
+
+    with open(summaryFile, 'w') as ofile:
+        json.dump(stats, ofile)
+
 if __name__ == "__main__":
     processQuant()

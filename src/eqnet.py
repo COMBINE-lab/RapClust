@@ -190,6 +190,15 @@ def getCountsFromEquiv(eqCollection):
             countDict[t] = 1.0
     return countDict
 
+def flattenClusters(infile, outfile):
+    with open(outfile, 'w') as ofile:
+        with open(infile) as ifile:
+            for i,l in enumerate(ifile):
+                toks = l.rstrip().split()
+                cname = "cluster{}".format(i)
+                for t in toks:
+                    ofile.write("{}\t{}\n".format(cname, t))
+
 def filterGraph(expDict, netfile, ofile):
     import os
     import pandas as pd
