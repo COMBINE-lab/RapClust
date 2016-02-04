@@ -8,12 +8,15 @@ import os
 import time
 import click
 
-def loadResults2(contigToGene, fname):
+def loadResults2(method, contigToGene, fname):
     clust2genes = {}
     with open(fname, 'r') as f:
         for l in f:
             toks = l.rstrip().split()
-            contig, clust = toks[0], toks[1]
+            if (method == "sailfish"):
+                contig, clust = toks[1], toks[0]
+            else:
+                contig, clust = toks[0], toks[1]
             if clust not in clust2genes:
                 clust2genes[clust] = set([])
             if contig in contigToGene:
@@ -24,8 +27,12 @@ def loadResults(contigToGene, fname):
     clust2gene = {}
     with open(fname, 'r') as f:
         line = f.readline()
-        curclustID = line.split('\t')[1].strip('\n')
-        contigIDs = [line.split('\t')[0]]
+        if (method == "sailfish"):
+            curclustID = line.split('\t')[0].strip('\n')
+            contigIDs = [line.split('\t')[1]].strip('\n')
+        else:
+            curclustID = line.split('\t')[1].strip('\n')
+            contigIDs = [line.split('\t')[0]].strip('\n')
         for line in f:
             if (line.split('\t')[1].strip('\n') == curclustID):
                 contigIDs.append(line.split('\t')[0])
@@ -70,9 +77,11 @@ def loadResults(contigToGene, fname):
 
 @click.command()
 @click.option("--method", default="sailfish", help="method to generate results for")
-@click.option("--adir", help="analysis directory containing the clustering files and adjusted p-value files")
+@click.option("--clustfile", help="path to the flat cluster file")
+@click.option("--contig2gene", help="path to the flat contig2Cuffgene file")
+@click.option("--adir", help="analysis directory containing the adjusted p-value files")
 @click.option("--odir", default='.', help="directory where results will be written")
-def genTPRate(method, adir, odir):
+def genTPRate(method, clustfile, contig2gene, adir, odir):
     import os
 
     sigCutoff = 0.05
@@ -80,15 +89,15 @@ def genTPRate(method, adir, odir):
     print ("Data is in dir: " + path)
 
     usingSets = True
-    contigToGeneFile = os.path.sep.join([path, "contig2cuffGene.tsv"])
+    contigToGeneFile = contig2gene
     contigToGene = pd.read_table(contigToGeneFile, names=["contigs", "cuffgene"])
     contigToGene.set_index("contigs", inplace=True)
     contigToGene = contigToGene.to_dict()['cuffgene']
 
     if method == "sailfish":
-        clust2gene = loadResults2(contigToGene, os.path.sep.join([path, "rapclust_clusters.flat"]))
+        clust2gene = loadResults2(method, contigToGene, clustfile)
     elif method == "corset":
-        clust2gene = loadResults2(contigToGene, os.path.sep.join([path, "corset-clusters.txt"]))
+        clust2gene = loadResults2(method, contigToGene, clustfile)
 
     #print(clust2gene.keys())
     with open(os.path.sep.join([path,  method + "padj.txt"]), 'r') as f:
