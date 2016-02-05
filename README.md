@@ -86,7 +86,7 @@ outdir: human_rapclust
 you can place this in a file called `config.yaml`.  RapClust uses [YAML](http://yaml.org/) to specify its configuration files.  The setup here is hopefully self-explanatory.  There configuration file must contain the following three entries; `conditions`, `samples`, and `outdir`.  The `conditions` entry lists the conditions present in the sample. The `samples` entry is a nested dictionary of lists; there is a key corrseponding to each condition listed in the `conditions` entry, and the value associated with this key is a list of quantification directories of the samples for this condition.  Finally, the `outdir` entry specifies where the RapClust output and intermediate files should be stored.  Given the above, we can run RapClust as:
 
 ```
-> ./RapClust.py --config config.yaml
+> RapClust --config config.yaml
 ```
 
 This will process the samples, generate the mapping ambiguity graph, filter it according to the conditions, and cluster the resuling graph (RapClust uses [MCL](http://micans.org/mcl/) internally for clustering).  Once RapClust is finished, the `human_rapclust` directory should exist.  It will contain the following files:
