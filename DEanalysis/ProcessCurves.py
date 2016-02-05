@@ -27,7 +27,7 @@ def processCurves(dset, label):
     sns.set_style("white")
     for m, c in mdict.iteritems():
         x, y = zip(*c)
-        plt.plot(x, y, label="{} (AUC = {:.3g})".format(m, c.area()))
+        plt.plot(x, y, linewidth=5.0, label="{} (AUC = {:.3g})".format(m, c.area()))
     sns.despine()
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")

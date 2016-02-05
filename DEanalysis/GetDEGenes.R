@@ -75,7 +75,7 @@ rownames(meta) <- meta$sample
 first = TRUE
 for (m in methods) {
 
-  if ((m == "sailfish") | (m == "truth")) {
+  if ((m == "sailfish") | (m == "truth") || (m == "cdhit")) {
 	txis <- lapply(methods, getTXImport, species)
 	names(txis) <- methods
 
@@ -94,7 +94,7 @@ for (m in methods) {
     if (species == "chicken") {
 	    condition=factor(rep(c("A","B"),each=4))
     } else {
-        condition=factor(rep(c("A","B"),each=4))
+        condition=factor(rep(c("A","B"),each=3))
     }
     	dsd <- DESeq2::DESeqDataSetFromMatrix(dat, DataFrame(condition), ~ condition)
   

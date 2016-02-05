@@ -98,6 +98,8 @@ def genTPRate(method, clustfile, contig2gene, adir, odir):
         clust2gene = loadResults2(method, contigToGene, clustfile)
     elif method == "corset":
         clust2gene = loadResults2(method, contigToGene, clustfile)
+    elif method == "cdhit":
+        clust2gene = loadResults2(method, contigToGene, clustfile)
 
     #print(clust2gene.keys())
     with open(os.path.sep.join([path,  method + "padj.txt"]), 'r') as f:
