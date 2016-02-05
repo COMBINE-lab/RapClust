@@ -11,14 +11,22 @@ RapClust depends on the following external programs (to be available in the envi
   1. The MCL clustering tool
   2. The Sailfish (or Salmon) quantification tool<sup id="a1">[1](#f1)</sup>
 
+Further, it depends on the following Python packages:
+  
+  1. [Click](http://click.pocoo.org/5/)
+  2. [PyYAML](https://pypi.python.org/pypi/PyYAML)
+  3. [Pandas](http://pandas.pydata.org/)
+  4. [NumPy](http://www.numpy.org/)
+
+We're currently working on preparing RapClust as a Python package (so that it can be installed via pip), but haven't finished this packaging yet.  So, for the time being, you'll have to ensure these dependencies are already installed.
+
 ## Using RapClust
 ------------------
 
 RapClust is written in Python, is easy to use, and adds only marginal runtime to what is already required for rapid *de novo* transcriptome quantification (typically a few seconds or minutes, even for very large experiments with many reads and samples).  RapClust is compatible with both Sailfish and Salmon; in the instructions below, we explain how to use it with Sailfish.  There are two main steps involved in running RapClust:
 
-    1. Run Sailfish on each sample in your experiment, passing it the `--dumpEq` option.  This will tell Sailfish to dump a representation of the fragment equivalence classes that it computed during quasi-mapping of each sample.  Apart from this additional option, Sailfish should be run normally (i.e. passing in whatever other options are appropriate for your samples).
-    
-    2. Run RapClust, providing it with a configuration file that describes the experimental setup of your samples, and where the Sailfish quantification results have been written.
+  1. Run Sailfish on each sample in your experiment, passing it the `--dumpEq` option.  This will tell Sailfish to dump a representation of the fragment equivalence classes that it computed during quasi-mapping of each sample.  Apart from this additional option, Sailfish should be run normally (i.e. passing in whatever other options are appropriate for your samples).
+  2. Run RapClust, providing it with a configuration file that describes the experimental setup of your samples, and where the Sailfish quantification results have been written.
     
 Let's illustrate this pipeline with a particular example, the following experimental data from the [Trapnell et al. paper](http://www.nature.com/nbt/journal/v31/n1/full/nbt.2450.html):
 
