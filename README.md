@@ -18,7 +18,27 @@ Further, it depends on the following Python packages:
   3. [Pandas](http://pandas.pydata.org/)
   4. [NumPy](http://www.numpy.org/)
 
-We're currently working on preparing RapClust as a Python package (so that it can be installed via pip), but haven't finished this packaging yet.  So, for the time being, you'll have to ensure these dependencies are already installed.
+However, you should be able to install rapclust via `pip` and have these dependencies installed automatically.  To install RapClust via pip, you can use:
+
+```
+> pip install rapclust
+```
+
+You should now have a `RapClust` executable in your path.  You can test this with the following command:
+
+```
+> RapClust --help
+```
+
+You should see the following output:
+
+```
+Usage: RapClust [OPTIONS]
+
+Options:
+  --config TEXT  Config file describing the experimental setup
+  --help         Show this message and exit.
+```
 
 ## Using RapClust
 ------------------
