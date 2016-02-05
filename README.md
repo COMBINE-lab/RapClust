@@ -23,6 +23,13 @@ SRR493369	| HOXA1KD	  | 1
 SRR493370	| HOXA1KD	  | 2
 SRR493371 | HOXA1KD   | 3
 
+We'll assume that the raw read files reside in the directory `reads`.  Assuming that you've already built the index on the transcriptome you wish to quantify, a typical run of Sailfish on this data would look something like.
+
+```
+> sailfish quant -i index -l IU -1 <(gunzip -c {$samp}_1.fq.gz) -2 <(gunzip -c {$samp}_2.fq.gz)
+```
 
 ## Citations:
 =============
+
+Differential analysis of gene regulation at transcript resolution with RNA-seq by Cole Trapnell, David G Henderickson, Martin Savageau, Loyal Goff, John L Rinn and Lior Pachter, Nature Biotechnology 31, 46–53 (2013).
