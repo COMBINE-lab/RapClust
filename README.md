@@ -1,4 +1,4 @@
-# RapClust :  Accurate, Fast and Lightweight Clustering of de novo Transcriptomes using Fragment Equivalence Classes
+# RapClust 
 ============
 
 [![Join the chat at https://gitter.im/COMBINE-lab/RapClust](https://badges.gitter.im/COMBINE-lab/RapClust.svg)](https://gitter.im/COMBINE-lab/RapClust?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
