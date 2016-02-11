@@ -1,0 +1,52 @@
+---
+layout: page
+title: RapClust 
+subtitle: Fast, Accurate and Lightweight Clustering of de novo Transcriptomes 
+---
+
+<h1>What is RapClust?</h1>
+
+<p>RapClust is a tool for clustering contigs from <i>de novo</i> transcriptome assemblies.  RapClust is designed to be run downstream of the <a href="https://github.com/kingsfordgroup/sailfish">Sailfish</a> or  <a href="https://github.com/COMBINE-lab/salmon">Salmon</a> tools for rapid transcript-level quantification.  Specifically, RapClust relies on the <i>fragment equivalence classes</i> computed by these tools in order to determine how seqeunce is shared across the transcriptome, and how reads map to potentially-related contigs across different conditions.  RapClust is heavily inspired by the approach of <a href="https://github.com/Oshlack/Corset">Corset</a>, and one of the main goals of the tool is to make the same type of high-quality <i>de novo</i> transcriptome clusterings available in the new breed of ultra-fast expression analysis pipelines.  RapClust achieves its speed partly by replacing traditional alignment with the novel concept of <a href="https://github.com/COMBINE-lab/RapMap">quasi-mapping</a>, which yeilds sufficient information for highly-accurate quantification and clustering orders of magnitude faster than standard read alignment tools.  RapClust also achieves its speed and accuracy by relying on the concise (yet surprisingly rich) information contained in fragment-level equivalence classes, and the mapping ambiguity graph they induce.</p>
+
+<!--
+<div class="posts-list">
+  {% for post in paginator.posts %}
+  <article class="post-preview">
+    <a href="{{ post.url | prepend: site.baseurl }}">
+	  <h2 class="post-title">{{ post.title }}</h2>
+	
+	  {% if post.subtitle %}
+	  <h3 class="post-subtitle">
+	    {{ post.subtitle }}
+	  </h3>
+	  {% endif %}  
+    </a>
+
+    <p class="post-meta">
+      Posted on {{ post.date | date: "%B %-d, %Y" }}
+    </p>
+  
+    <div class="post-entry">
+      {{ post.content | truncatewords: 50 | strip_html | xml_escape}}
+	  <a href="{{ post.url | prepend: site.baseurl }}" class="post-read-more">[Read&nbsp;More]</a>
+    </div>
+  
+   </article>
+  {% endfor %}
+</div>
+
+{% if paginator.total_pages > 1 %}
+<ul class="pager main-pager">
+  {% if paginator.previous_page %}
+  <li class="previous">
+    <a href="{{ paginator.previous_page_path | prepend: site.baseurl | replace: '//', '/' }}">&larr; Newer Posts</a>
+  </li>
+  {% endif %}
+  {% if paginator.next_page %}
+  <li class="next">
+    <a href="{{ paginator.next_page_path | prepend: site.baseurl | replace: '//', '/' }}">Older Posts &rarr;</a>
+  </li>
+  {% endif %}
+</ul>
+{% endif %}
+-->
