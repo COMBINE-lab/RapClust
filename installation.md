@@ -24,25 +24,25 @@ However, you should be able to install rapclust via `pip` and have these depende
 ## Installation via pip
 -----------------------
 
-```
+~~~
 > pip install rapclust
-```
+~~~
 
 You should now have a `RapClust` executable in your path.  You can test this with the following command:
 
-```
+~~~
 > RapClust --help
-```
+~~~
 
 You should see the following output:
 
-```
+~~~
 Usage: RapClust [OPTIONS]
 
 Options:
   --config TEXT  Config file describing the experimental setup
   --help         Show this message and exit.
-```
+~~~
 
 If you see this, then RapClust has been successfully installed!
 

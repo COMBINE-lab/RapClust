@@ -14,20 +14,24 @@ RapClust is written in Python, is easy to use, and adds only marginal runtime to
     
 Let's illustrate this pipeline with a particular example, the following experimental data from the [Trapnell et al. paper](http://www.nature.com/nbt/journal/v31/n1/full/nbt.2450.html):
 
-Accession | Condition | Replicate
-----------|-----------|----------
-SRR493366 | scramble  | 1
-SRR493367 | scramble  | 2
-SRR493368 | scramble  | 3
-SRR493369 | HOXA1KD   | 1
-SRR493370 | HOXA1KD   | 2
-SRR493371 | HOXA1KD   | 3
+----------+-----------+----------|
+Accession | Condition | Replicate|
+----------|-----------|----------|
+SRR493366 | scramble  | 1	 |
+SRR493367 | scramble  | 2	 |
+SRR493368 | scramble  | 3	 |
+SRR493369 | HOXA1KD   | 1	 |
+SRR493370 | HOXA1KD   | 2	 |
+SRR493371 | HOXA1KD   | 3	 |
+----------+-----------+----------|
+
+
 
 We'll assume that the raw read files reside in the directory `reads`.  Assuming that you've already built the index on the transcriptome you wish to quantify, a typical run of Sailfish on this data would look something like.
 
-```
+~~~
 > parallel -j 6 "samp={}; sailfish quant -i index -l IU -1 <(gunzip -c reads/{$samp}_1.fq.gz) -2 <(gunzip -c reads/{$samp}_2.fq.gz) -o {$samp}_quant --dumpEq -p 4" ::: SRR493366 SRR493367 SRR493368 SRR4933669 SRR493370 SRR493371
-```
+~~~
 
 This will quantify each sample, and write the result to the directory `samplename_quant`.  Given this setup, we're now ready to run RapClust.  First, we have to make an appropriate config file.  We'll use the following:
 
@@ -47,9 +51,9 @@ This will quantify each sample, and write the result to the directory `samplenam
 
 you can place this in a file called `config.yaml`.  RapClust uses [YAML](http://yaml.org/) to specify its configuration files.  The setup here is hopefully self-explanatory.  There configuration file must contain the following three entries; `conditions`, `samples`, and `outdir`.  The `conditions` entry lists the conditions present in the sample. The `samples` entry is a nested dictionary of lists; there is a key corrseponding to each condition listed in the `conditions` entry, and the value associated with this key is a list of quantification directories of the samples for this condition.  Finally, the `outdir` entry specifies where the RapClust output and intermediate files should be stored.  Given the above, we can run RapClust as:
 
-```
+~~~
 > RapClust --config config.yaml
-```
+~~~
 
 This will process the samples, generate the mapping ambiguity graph, filter it according to the conditions, and cluster the resuling graph (RapClust uses [MCL](http://micans.org/mcl/) internally for clustering).  Once RapClust is finished, the `human_rapclust` directory should exist.  It will contain the following files:
 
