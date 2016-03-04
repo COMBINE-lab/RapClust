@@ -1,0 +1,14 @@
+conditions:
+    - Control
+    - HOXA1 Knockdown
+samples:
+    Control:
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/A1
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/A2
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/A3
+    HOXA1 Knockdown:
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/B1
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/B2
+        - /mnt/scratch3/avi/clustering/data/human/trinity/sailfish/sailfish_quant/B3
+outdir: human_noorphan_out
+
