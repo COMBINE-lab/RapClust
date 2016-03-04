@@ -291,7 +291,7 @@ def filterGraph(expDict, netfile, ofile):
                     fcx.append((a1x/b1x) + (a2x/b2x) + (a3x/b3x) + (a1x/b2x) + (a1x/b3x) + (a2x/b1x) + (a2x/b3x) + (a3x/b1x) + (a3x/b2x) )
                     fcy.append((a1y/b1y) + (a2y/b2y) + (a3y/b3y) + (a1y/b2y) + (a1y/b3y) + (a2y/b1y) + (a2y/b3y) + (a3y/b1y) + (a3y/b2y) )
             (Dval,pval) = stats.ks_2samp(fcx, fcy)
-            if pval <= 0.05:
+            if pval > 0.05:
             #if pval > (0.05/len(netdata)):
             #if (Dval <= 0.8):
                 ofile.write("{}\t{}\t{}\n".format(xContig, yContig, netdata[2][i]))
