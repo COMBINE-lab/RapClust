@@ -203,6 +203,8 @@ def filterGraph(expDict, netfile, ofile):
     import os
     import pandas as pd
     import math
+    import gzip
+    import struct
 
     # Get just the set of condition names
     conditions = expDict.keys()
@@ -239,23 +241,25 @@ def filterGraph(expDict, netfile, ofile):
 
     conditions = ['A', 'B']
     replicates = ['1', '2', '3']
+    nboots = 50
 
     data = {}
 
     with open(ipath+"A1/aux/bootstrap/names.tsv") as names:
         contigIds = names.readline().strip().split("\t")
 
+    n = len(contigIds)
+    bsDict = {'A' : [], 'B' : []}
     for condition in conditions:
         for replicate in replicates:
-            path = ipath+condition+replicate+"/aux/bootstrap/"
-            bootstrapFile = path+"bootstraps.txt"
+            path = os.path.sep.join([ipath+condition+replicate,"aux","bootstrap"])
+            bootstrapFile = os.path.sep.join([path, "bootstraps.gz"])
 
-            with open(bootstrapFile) as boots:
-                readCounts = []
-                for line in boots:
-                    readCounts.append(line.strip().split("\t"))
-                data[condition+replicate] = readCounts
-
+            with gzip.open(bootstrapFile, 'r') as boots:
+                readCounts = [ np.array(s.unpack_from(boots.read(8*n))) for i in xrange(nboots)]
+                bsDict[condition].append(np.vstack(readCounts))
+ 
+    nsamp = 2000
     with open(netfile) as f, open(ofile, 'w') as ofile:
         netdata = pd.read_table(f, header=None)
         pvalsAll = []
@@ -271,25 +275,23 @@ def filterGraph(expDict, netfile, ofile):
 
             fcx = []
             fcy = []
-            for bootIndA in range(50):
-                a1x = float(data['A1'][bootIndA][xInd])+1
-                a2x = float(data['A2'][bootIndA][xInd])+1
-                a3x = float(data['A3'][bootIndA][xInd])+1
-                a1y = float(data['A1'][bootIndA][yInd])+1
-                a2y = float(data['A2'][bootIndA][yInd])+1
-                a3y = float(data['A3'][bootIndA][yInd])+1
-                for bootIndB in range(50):
-                    b1x = float(data['B1'][bootIndB][xInd])+1
-                    b2x = float(data['B2'][bootIndB][xInd])+1
-                    b3x = float(data['B3'][bootIndB][xInd])+1
-                    b1y = float(data['B1'][bootIndB][yInd])+1
-                    b2y = float(data['B2'][bootIndB][yInd])+1
-                    b3y = float(data['B3'][bootIndB][yInd])+1
+            xCondA = np.hstack([bsDict['A'][0][xInd,:],  bsDict['A'][1][xInd, :], bsDict['A'][2][xInd, :]])
+            yCondA = np.hstack([bsDict['A'][0][yInd,:],  bsDict['A'][1][yInd, :], bsDict['A'][2][yInd, :]])
+            xCondB = np.hstack([bsDict['B'][0][xInd,:],  bsDict['B'][1][xInd, :], bsDict['B'][2][xInd, :]])
+            yCondB = np.hstack([bsDict['B'][0][yInd,:],  bsDict['B'][1][yInd, :], bsDict['B'][2][yInd, :]])
+            for j in xrange(nsamp):
+            #for bootIndA in range(nboots):
+                np.random.shuffle(aSamp)
+                np.random.shuffle(bSamp)
+                xSamps = (xCondA + 1.0) / (xCondB + 1.0)
+                ySamps = (yCondA + 1.0) / (yCondB + 1.0)
+                #for bootIndB in range(nboots):
 
                     #fcx.append((a1x+a2x+a3x)/(b1x+b2x+b3x))
                     #fcy.append((a1y+a2y+a3y)/(b1y+b2y+b3y))
-                    fcx.append((a1x/b1x) + (a2x/b2x) + (a3x/b3x) + (a1x/b2x) + (a1x/b3x) + (a2x/b1x) + (a2x/b3x) + (a3x/b1x) + (a3x/b2x) )
-                    fcy.append((a1y/b1y) + (a2y/b2y) + (a3y/b3y) + (a1y/b2y) + (a1y/b3y) + (a2y/b1y) + (a2y/b3y) + (a3y/b1y) + (a3y/b2y) )
+                    fcx.append(list(xsamps))
+                    fcy.append(list(ysamps))
+                    #fcy.append((a1y/b1y) + (a2y/b2y) + (a3y/b3y) + (a1y/b2y) + (a1y/b3y) + (a2y/b1y) + (a2y/b3y) + (a3y/b1y) + (a3y/b2y) )
             (Dval,pval) = stats.ks_2samp(fcx, fcy)
             if pval > 0.05:
             #if pval > (0.05/len(netdata)):
