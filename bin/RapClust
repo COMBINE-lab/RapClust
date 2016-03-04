@@ -6,7 +6,7 @@ import logging
 import click
 import yaml
 
-from rapclust import eqnet
+import eqnetNew as eqnet
 
 @click.command()
 @click.option('--config', help='Config file describing the experimental setup')
