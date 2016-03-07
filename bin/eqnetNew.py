@@ -205,6 +205,7 @@ def filterGraph(expDict, netfile, ofile):
     import math
     import gzip
     import struct
+    import numpy as np
 
     # Get just the set of condition names
     conditions = expDict.keys()
@@ -234,10 +235,10 @@ def filterGraph(expDict, netfile, ofile):
 
     import pandas as pd
     from scipy import stats
-    from rpy2.robjects.packages import importr
-    from rpy2.robjects.vectors import FloatVector
+    #from rpy2.robjects.packages import importr
+    #from rpy2.robjects.vectors import FloatVector
 
-    Rstats = importr('stats', on_conflict="warn")
+    #Rstats = importr('stats', on_conflict="warn")
 
     conditions = ['A', 'B']
     replicates = ['1', '2', '3']
@@ -246,10 +247,11 @@ def filterGraph(expDict, netfile, ofile):
     data = {}
 
     with open(ipath+"A1/aux/bootstrap/names.tsv") as names:
-        contigIds = names.readline().strip().split("\t")
+        contigIds = {k : v for v,k in enumerate(names.readline().strip().split("\t"))}
 
     n = len(contigIds)
     bsDict = {'A' : [], 'B' : []}
+    s = struct.Struct('d'*n)
     for condition in conditions:
         for replicate in replicates:
             path = os.path.sep.join([ipath+condition+replicate,"aux","bootstrap"])
@@ -257,11 +259,16 @@ def filterGraph(expDict, netfile, ofile):
 
             with gzip.open(bootstrapFile, 'r') as boots:
                 readCounts = [ np.array(s.unpack_from(boots.read(8*n))) for i in xrange(nboots)]
-                bsDict[condition].append(np.vstack(readCounts))
- 
-    nsamp = 2000
+                bsDict[condition].append(np.vstack(readCounts).T)
+
+    for k,a in bsDict.iteritems():
+        for v in a:
+            print("k = {}, size={}".format(k, v.shape))
+    nsamp = 1 
+    last = 0
     with open(netfile) as f, open(ofile, 'w') as ofile:
         netdata = pd.read_table(f, header=None)
+        numTest = len(netdata)
         pvalsAll = []
         for i in range(len(netdata)):
             count += 1
@@ -270,35 +277,52 @@ def filterGraph(expDict, netfile, ofile):
             xContig = netdata[0][i]
             yContig = netdata[1][i]
 
-            xInd = contigIds.index(xContig)
-            yInd = contigIds.index(yContig)
+            xInd = contigIds[xContig]
+            yInd = contigIds[yContig]
 
             fcx = []
             fcy = []
-            xCondA = np.hstack([bsDict['A'][0][xInd,:],  bsDict['A'][1][xInd, :], bsDict['A'][2][xInd, :]])
-            yCondA = np.hstack([bsDict['A'][0][yInd,:],  bsDict['A'][1][yInd, :], bsDict['A'][2][yInd, :]])
-            xCondB = np.hstack([bsDict['B'][0][xInd,:],  bsDict['B'][1][xInd, :], bsDict['B'][2][xInd, :]])
-            yCondB = np.hstack([bsDict['B'][0][yInd,:],  bsDict['B'][1][yInd, :], bsDict['B'][2][yInd, :]])
+            xCondA = np.hstack([bsDict['A'][r][xInd,:] for r in xrange(3)])
+            yCondA = np.hstack([bsDict['A'][r][yInd,:] for r in xrange(3)])
+            xCondB = np.hstack([bsDict['B'][r][xInd,:] for r in xrange(3)])
+            yCondB = np.hstack([bsDict['B'][r][yInd,:] for r in xrange(3)])
             for j in xrange(nsamp):
             #for bootIndA in range(nboots):
-                np.random.shuffle(aSamp)
-                np.random.shuffle(bSamp)
-                xSamps = (xCondA + 1.0) / (xCondB + 1.0)
-                ySamps = (yCondA + 1.0) / (yCondB + 1.0)
+                np.random.shuffle(xCondA)
+                np.random.shuffle(yCondA)
+                np.random.shuffle(xCondB)
+                np.random.shuffle(yCondB)
+                condASamps = (xCondA + 1.0) / (yCondA + 1.0)
+                condBSamps = (xCondB + 1.0) / (yCondB + 1.0)
                 #for bootIndB in range(nboots):
 
                     #fcx.append((a1x+a2x+a3x)/(b1x+b2x+b3x))
                     #fcy.append((a1y+a2y+a3y)/(b1y+b2y+b3y))
-                    fcx.append(list(xsamps))
-                    fcy.append(list(ysamps))
+                fcx += list(condASamps)
+                fcy += list(condBSamps)
                     #fcy.append((a1y/b1y) + (a2y/b2y) + (a3y/b3y) + (a1y/b2y) + (a1y/b3y) + (a2y/b1y) + (a2y/b3y) + (a3y/b1y) + (a3y/b2y) )
-            (Dval,pval) = stats.ks_2samp(fcx, fcy)
-            if pval > 0.05:
+            #(Dval,pval) = stats.ks_2samp(fcx, fcy)
+            mux, stdx= stats.norm.fit(fcx)
+            muy, stdy = stats.norm.fit(fcy)
+            (stat, pval) = stats.ttest_ind(stats.norm.rvs(loc=mux, scale=stdx, size=50),
+                                           stats.norm.rvs(loc=muy, scale=stdy, size=50), equal_var=False)
+
+            diff = False
+            if (muy >= mux + 2 * stdx) or  (mux >= muy  + 2 * stdy):
+                diff = True
+
+            #if not diff:
+            #(stat, crit, pval) = stats.anderson_ksamp([fcx, fcy])
+            if pval > (0.01 / numTest):
             #if pval > (0.05/len(netdata)):
             #if (Dval <= 0.8):
                 ofile.write("{}\t{}\t{}\n".format(xContig, yContig, netdata[2][i]))
             else:
                 numTrimmed += 1
+                if numTrimmed - last >= 1000:
+                    print("\r\r Trimmed {}% of edges".format(100.0 * numTrimmed / float(i+1), end=""))
+                    print(mux, muy, pval)
+                    last = numTrimmed
 
     print("\nTrimmed {} edges".format(numTrimmed))
 
