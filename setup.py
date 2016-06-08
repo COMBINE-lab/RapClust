@@ -12,6 +12,7 @@ setup(name='rapclust',
       install_requires=[
           'PyYAML',
           'click',
+          'networkx',
           'numpy',
           'pandas'
       ],
