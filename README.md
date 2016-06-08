@@ -109,4 +109,4 @@ Charlotte Soneson, Michael I Love, and Mark D Robinson. Differential analyses fo
 
 ### Footnotes:
 --------------
-<b id="f1">1</b>Currently, if one chosses to use Salmon, RapClust relies on the head of Salmon's master branch, which must be compiled from source. [↩](#a1)
+<b id="f1">1</b>Currently, if one chosses to use Salmon, RapClust relies on the head of Salmon's `develop` branch, which must be compiled from source. [↩](#a1)
