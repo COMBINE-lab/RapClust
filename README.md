@@ -11,7 +11,7 @@ RapClust is a tool for clustering contigs from *de novo* transcriptome assemblie
 RapClust depends on the following external programs (to be available in the environment where it runs):
 
   1. The [MCL](http://micans.org/mcl/) clustering tool
-  2. The [Sailfish](https://github.com/kingsfordgroup/sailfish) (or [Salmon](https://github.com/COMBINE-lab/salmon)) quantification tool<sup id="a1">[1](#f1)</sup>
+  2. The [Sailfish](https://github.com/kingsfordgroup/sailfish) (or [Salmon](https://github.com/COMBINE-lab/salmon)) quantification tool.
 
 Further, it depends on the following Python packages:
   
