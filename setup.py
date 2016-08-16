@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='rapclust',
-      version='0.1',
+      version='0.1.1',
       scripts=['bin/RapClust'],
       description='Accurate, Fast and Lightweight Clustering of de novo Transcriptomes using Fragment Equivalence Classes',
       url='https://github.com/COMBINE-lab/RapClust',

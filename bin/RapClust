@@ -8,14 +8,17 @@ import yaml
 
 from rapclust import eqnet
 
-@click.command()
-@click.option('--config', help='Config file describing the experimental setup')
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.option('--config', required=True, help='Config file describing the experimental setup')
 def processQuant(config):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     cfg = None
     with open(config, 'r') as yamCfg:
+        print("hi")
         cfg = yaml.load(yamCfg)
 
     # A list of all sample directories
