@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-def buildNetFile(sampdirs, netfile, cutoff, writecomponents=False):
+def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
     import itertools
     import pandas as pd
     import numpy as np
@@ -24,7 +24,7 @@ def buildNetFile(sampdirs, netfile, cutoff, writecomponents=False):
     diagCounts = np.zeros(len(quant['TPM'].values))
 
     tot = 0
-    eqfiles = [sep.join([sd, 'aux/eq_classes.txt']) for sd in sampdirs]
+    eqfiles = [sep.join([sd, auxDir, '/eq_classes.txt']) for sd in sampdirs]
 
     firstSamp = True
     numSamp = 0
@@ -199,7 +199,7 @@ def flattenClusters(infile, outfile):
                 for t in toks:
                     ofile.write("{}\t{}\n".format(cname, t))
 
-def filterGraph(expDict, netfile, ofile):
+def filterGraph(expDict, netfile, ofile, auxDir):
     import os
     import pandas as pd
     import math
@@ -230,7 +230,7 @@ def filterGraph(expDict, netfile, ofile):
         for sampNum, sampPath in expDict[cond].iteritems():
             if cond not in eqClasses:
                 eqClasses[cond] = EquivCollection()
-            eqPath = os.path.sep.join([sampPath, "aux", "eq_classes.txt"])
+            eqPath = os.path.sep.join([sampPath, auxDir, "/eq_classes.txt"])
             readEqClass(eqPath, eqClasses[cond])
 
     ambigCounts = {cond : getCountsFromEquiv(eqClasses[cond]) for cond in conditions}

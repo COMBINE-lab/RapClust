@@ -53,13 +53,21 @@ def processQuant(config):
     netFile = os.path.sep.join([outdir, "mag.net"])
     # Make the network
 
+    with open(sep.join([sd, 'cmd_info.json']) as json_file:
+        cmd_info = json.load(json_file)
+    
+    if 'auxDir' in cmd_info:
+        auxDir = cmd_info['auxDir']
+    else:
+        auxDir = 'aux'
+
     logging.info("Building multiple alignment graph")
-    eqnet.buildNetFile(sampleDirs, netFile, cutoff)
+    eqnet.buildNetFile(sampleDirs, netFile, cutoff, auxDir)
     # Filter the network
     filtNetFile = os.path.sep.join([outdir, "mag.filt.net"])
 
     logging.info("Filtering multiple alignment graph")
-    eqnet.filterGraph(conditionDict, netFile, filtNetFile)
+    eqnet.filterGraph(conditionDict, netFile, filtNetFile, auxDir)
     # cluster the graph
     from subprocess import call
     clustFile = os.path.sep.join([outdir, "mag.clust"])
