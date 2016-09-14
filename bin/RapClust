@@ -53,7 +53,7 @@ def processQuant(config):
     netFile = os.path.sep.join([outdir, "mag.net"])
     # Make the network
 
-    with open(sep.join([sd, 'cmd_info.json']) as json_file:
+    with open(sep.join([sampleDirs[0], 'cmd_info.json']) as json_file:
         cmd_info = json.load(json_file)
     
     if 'auxDir' in cmd_info:
