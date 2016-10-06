@@ -5,42 +5,48 @@ def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
     import pandas as pd
     import numpy as np
     import os
+    import logging
+
+    logger = logging.getLogger("rapclust")
 
     sep = os.path.sep
     sffiles = [sep.join([sd, 'quant.sf']) for sd in sampdirs]
-
-    quant = None
-    for sffile in sffiles:
-        if quant is None:
-            quant = pd.read_table(sffile)
-            quant.set_index('Name', inplace=True)
-        else:
-            quant2 = pd.read_table(sffile)
-            quant2.set_index('Name', inplace=True)
-            quant += quant2
+    eqfiles = [sep.join([sd, auxDir, '/eq_classes.txt']) for sd in sampdirs]
 
     tnames = []
     weightDict = {}
-    diagCounts = np.zeros(len(quant['TPM'].values))
-
-    tot = 0
-    eqfiles = [sep.join([sd, auxDir, '/eq_classes.txt']) for sd in sampdirs]
-
+    diagCounts = None
+    sumCounts = None
+    ambigCounts = None
     firstSamp = True
     numSamp = 0
+    tot = 0
     eqClasses = {}
-    for eqfile in eqfiles:
+    for sffile, eqfile in itertools.izip(sffiles, eqfiles):
+        quant = pd.read_table(sffile)
+        quant.set_index('Name', inplace=True)
+
         with open(eqfile) as ifile:
             numSamp += 1
             numTran = int(ifile.readline().rstrip())
             numEq = int(ifile.readline().rstrip())
-            print("file: {}; # tran = {}; # eq = {}".format(eqfile, numTran, numEq))
+            logging.info("quant file: {}; eq file: {}; # tran = {}; # eq = {}".format(sffile, eqfile, numTran, numEq))
             if firstSamp:
                 for i in xrange(numTran):
                     tnames.append(ifile.readline().rstrip())
+                diagCounts = np.zeros(len(tnames))
+                sumCounts = np.zeros(len(tnames))
+                ambigCounts = np.zeros(len(tnames))
             else:
                 for i in xrange(numTran):
                     ifile.readline()
+
+            # for easy access to quantities of interest
+            tpm = quant.loc[tnames, 'TPM'].values
+            estCount = quant.loc[tnames, 'NumReads'].values
+            efflens = quant.loc[tnames, 'EffectiveLength'].values
+            epsilon =  np.finfo(float).eps
+            sumCounts = np.maximum(sumCounts, estCount)
 
             for i in xrange(numEq):
                 toks = map(int, ifile.readline().rstrip().split('\t'))
@@ -52,38 +58,36 @@ def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
                 else:
                     eqClasses[tids] = count
 
+                # Add the contribution to the graph
+                denom = sum([tpm[t] for t in tids])
+                for t1, t2 in itertools.combinations(tids,2):
+                    tpm1 = tpm[t1]
+                    tpm2 = tpm[t2]
+                    w = count * ((tpm1 + tpm2) / denom)
+                    key = (t1, t2)
+                    if key in weightDict:
+                        weightDict[key] += w
+                    else:
+                        weightDict[key] = w
+                for t in tids:
+                    diagCounts[t] += count * (tpm[t] / denom)
+                    ambigCounts[t] += count
             firstSamp = False
 
-    tpm = quant.loc[tnames, 'TPM'].values / numSamp
-    estCount = quant.loc[tnames, 'NumReads'].values
-    efflens = quant.loc[tnames, 'EffectiveLength'].values
-    epsilon =  np.finfo(float).eps
-    for tids, count in eqClasses.iteritems():
-        denom = sum([tpm[t] for t in tids])
-        tot += count
-        for t1, t2 in itertools.combinations(tids,2):
-            #tpm1 = tpm[t1]
-            #tpm2 = tpm[t2]
-            #w = count * ((tpm1 + tpm2) / denom)
-            if (t1, t2) in weightDict:
-                weightDict[(t1, t2)] += count
-            else:
-                weightDict[(t1, t2)] = count
-        for t in tids:
-            #if (estCount[t] <= cutoff):
-            #    continue
-            #diagCounts[t] += count * (tpm[t] / denom)
-            diagCounts[t] += count
+    lens = quant.loc[tnames, 'Length'].values
 
-
-    print("total reads = {}".format(tot))
     maxWeight = 0.0
     prior = 0.1
     edgesToRemove = []
+
+    ##
+    #  Go through the weightMap and remove any edges that
+    #  have endpoints with too few mapping reads
+    ##
     for k,v in weightDict.iteritems():
         c0, c1 = diagCounts[k[0]], diagCounts[k[1]]
-        #w = (v + prior) / (min(c0, c1) + prior)
-        if c0 + c1 > epsilon and c0 > cutoff and c1 > cutoff:
+        a0, a1 = ambigCounts[k[0]], ambigCounts[k[1]]
+        if a0 + a1 > epsilon and a0 > cutoff and a1 > cutoff:
             w = v / min(c0, c1)
             weightDict[k] = w
             if w > maxWeight:
@@ -91,8 +95,46 @@ def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
         else:
             edgesToRemove.append(k)
 
+    # Actually delete those edges
     for e in edgesToRemove:
         del weightDict[e]
+
+    def nearEnd(tup):
+        txp = tup[0]
+        pos = tup[1]
+        moverhang = 10
+        ml = 100
+        if pos < -moverhang or pos > lens[txp] + moverhang:
+            return False
+        elif pos <= ml or pos >= lens[txp] - ml:
+            return True
+        else:
+            return False
+
+    orphanLinkFiles = [sep.join([sd, auxDir, '/orphan_links.txt']) for sd in sampdirs]
+    haveLinkFiles = all(os.path.isfile(f) for f in orphanLinkFiles)
+    if haveLinkFiles:
+        numOrphanLinks = 0
+        for olfile in orphanLinkFiles:
+            for l in open(olfile):
+                left, right = l.rstrip().split(':')
+                lp = [map(int, i.split(',')) for i in left.rstrip('\t').split('\t')]
+                rp = [map(int, i.split(',')) for i in right.split('\t')]
+                lp = [t[0] for t in filter(nearEnd, lp)]
+                rp = [t[0] for t in filter(nearEnd, rp)]
+                if len(lp) == 1 and len(rp) == 1:
+                    for a, b in itertools.product(lp, rp):
+                        if ambigCounts[a] < cutoff or ambigCounts[b] < cutoff:
+                            continue
+                        c0, c1 = diagCounts[a], diagCounts[b]
+                        a0, a1 = ambigCounts[a], ambigCounts[b]
+                        key = (a, b) if a < b else (b, a)
+                        if key not in weightDict: 
+                            numOrphanLinks += 1
+                            weightDict[key] = 1.0 / min(a0, a1)
+                        else:
+                            weightDict[key] += 1.0 / min(a0, a1)
+        logging.info("Added {} orphan link edges".format(numOrphanLinks)) 
 
     tnamesFilt = []
     relabel = {}
@@ -203,10 +245,13 @@ def filterGraph(expDict, netfile, ofile, auxDir):
     import os
     import pandas as pd
     import math
+    import logging
+    from tqdm import tqdm
 
+    logger = logging.getLogger("rapclust")
     # Get just the set of condition names
     conditions = expDict.keys()
-    print("conditions = {}".format(conditions))
+    logging.info("conditions = {}".format(conditions))
 
     #for cond in conditions:
     #    sailfish[cond] = collections.defaultdict(float)
@@ -239,14 +284,14 @@ def filterGraph(expDict, netfile, ofile, auxDir):
     for cond in conditions:
         sailfish[cond] = ambigCounts[cond]
 
-    print ("Done Reading")
+    logging.info("Done Reading")
     count = 0
     numTrimmed = 0
     with open(netfile) as f, open(ofile, 'w') as ofile:
         data = pd.read_table(f, header=None)
-        for i in range(len(data)):
+        for i in tqdm(range(len(data))):
             count += 1
-            print("\r{} done".format(count), end="")
+            #print("\r{} done".format(count), end="")
             #Alternative hypo
             x = data[0][i]
             y = data[1][i]
@@ -275,7 +320,7 @@ def filterGraph(expDict, netfile, ofile, auxDir):
                 ofile.write("{}\t{}\t{}\n".format(x, y, data[2][i]))
             else:
                 numTrimmed += 1
-    print("\nTrimmed {} edges".format(numTrimmed))
+    logging.info("Trimmed {} edges".format(numTrimmed))
 
 
 
