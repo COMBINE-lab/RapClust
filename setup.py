@@ -11,9 +11,11 @@ setup(name='rapclust',
       packages=['rapclust'],
       install_requires=[
           'PyYAML',
+          'coloredlogs',
           'click',
           'networkx',
           'numpy',
-          'pandas'
+          'pandas',
+          'tqdm'
       ],
       zip_safe=False)
