@@ -66,7 +66,7 @@ SRR493371 | HOXA1KD   | 3
 We'll assume that the raw read files reside in the directory `reads`.  Assuming that you've already built the index on the transcriptome you wish to quantify, a typical run of Sailfish on this data would look something like.
 
 ```
-> parallel -j 6 "samp={}; sailfish quant -i index -l IU -1 <(gunzip -c reads/{$samp}_1.fq.gz) -2 <(gunzip -c reads/{$samp}_2.fq.gz) -o {$samp}_quant --dumpEq -p 4" ::: SRR493366 SRR493367 SRR493368 SRR4933669 SRR493370 SRR493371
+> parallel -j 6 "samp={}; sailfish quant -i index -l IU -1 <(gunzip -c reads/{$samp}_1.fq.gz) -2 <(gunzip -c reads/{$samp}_2.fq.gz) -o {$samp}_quant --dumpEq -p 4" ::: SRR493366 SRR493367 SRR493368 SRR493369 SRR493370 SRR493371
 ```
 
 This will quantify each sample, and write the result to the directory `samplename_quant`.  Given this setup, we're now ready to run RapClust.  First, we have to make an appropriate config file.  We'll use the following:
