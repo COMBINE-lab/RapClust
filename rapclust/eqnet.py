@@ -61,9 +61,10 @@ def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
                 # Add the contribution to the graph
                 denom = sum([tpm[t] for t in tids])
                 for t1, t2 in itertools.combinations(tids,2):
-                    tpm1 = tpm[t1]
-                    tpm2 = tpm[t2]
-                    w = count * ((tpm1 + tpm2) / denom)
+                    #tpm1 = tpm[t1]
+                    #tpm2 = tpm[t2]
+                    #w = count * ((tpm1 + tpm2) / denom)
+                    w = count
                     key = (t1, t2)
                     if key in weightDict:
                         weightDict[key] += w
@@ -88,7 +89,7 @@ def buildNetFile(sampdirs, netfile, cutoff, auxDir, writecomponents=False):
         c0, c1 = diagCounts[k[0]], diagCounts[k[1]]
         a0, a1 = ambigCounts[k[0]], ambigCounts[k[1]]
         if a0 + a1 > epsilon and a0 > cutoff and a1 > cutoff:
-            w = v / min(c0, c1)
+            w = (v+prior) / min((a0+prior), (a1+prior))
             weightDict[k] = w
             if w > maxWeight:
                 maxWeight = w
